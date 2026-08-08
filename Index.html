@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Видеопрокат">
+<meta name="theme-color" content="#120E11">
+<meta name="color-scheme" content="dark">
+<title>Видеопрокат — кино 1980–2009</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#120E11; --ink:#1A1317; --shell:#2C2327; --shell2:#160F13; --line:#3A2F34;
+  --paper:#EEE5D3; --paper2:#DACDB4; --red:#D7402F; --cyan:#54CBD3; --amber:#EFA93B; --muted:#9C8D93;
+  --top:calc(env(safe-area-inset-top,0px)); --bot:calc(env(safe-area-inset-bottom,0px));
+}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--paper); overscroll-behavior-y:none;
+  font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  background-image:repeating-linear-gradient(180deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);
+}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+.osw{font-family:"Oswald",Impact,"Haettenschweiler",sans-serif}
+
+/* ---------- шапка ---------- */
+header{position:sticky;top:0;z-index:40;padding:calc(var(--top) + 9px) 12px 9px;
+  background:rgba(18,14,17,.92);-webkit-backdrop-filter:saturate(140%) blur(12px);backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:8px}
+.logo{font-family:"Oswald",sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  font-size:19px;line-height:1;margin:0;white-space:nowrap}
+.logo b{color:var(--red);font-weight:700}
+.grow{flex:1}
+.icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border:1px solid var(--line);
+  background:transparent;color:var(--muted);border-radius:9px;font-size:16px;cursor:pointer}
+.icon:active{background:var(--ink)}
+.icon.on{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.bar2{display:flex;gap:8px;margin-top:8px}
+#q{flex:1;min-width:0;background:var(--ink);border:1px solid var(--line);border-radius:9px;color:var(--paper);
+  padding:9px 11px;font-size:16px;outline:none}
+#q:focus{border-color:var(--cyan)}
+.fbtn{white-space:nowrap;background:var(--ink);border:1px solid var(--line);color:var(--paper);border-radius:9px;
+  padding:0 13px;height:40px;font-size:13.5px;cursor:pointer;font-family:"IBM Plex Mono",monospace;letter-spacing:.04em}
+.fbtn.on{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.cnt{display:inline-block;min-width:17px;padding:0 4px;margin-left:5px;border-radius:9px;background:var(--red);
+  color:#fff;font-size:11px;line-height:17px;text-align:center}
+
+/* ---------- панель фильтров (сворачивается) ---------- */
+#filters{overflow:hidden;max-height:0;transition:max-height .26s ease;border-bottom:1px solid transparent}
+#filters.open{max-height:640px;border-bottom-color:var(--line)}
+.fin{padding:12px 12px 14px}
+.lbl{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.16em;color:var(--muted);
+  text-transform:uppercase;display:block;margin:0 0 7px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chip{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.04em;background:transparent;color:var(--muted);
+  border:1px solid var(--line);border-radius:7px;padding:7px 10px;cursor:pointer;min-height:34px}
+.chip.on{background:var(--paper);color:var(--ink);border-color:var(--paper);font-weight:600}
+.chip.red.on{background:var(--red);color:#fff;border-color:var(--red)}
+.chip.cyan.on{background:var(--cyan);color:var(--ink);border-color:var(--cyan)}
+.chip.amber.on{background:var(--amber);color:var(--ink);border-color:var(--amber)}
+select{width:100%;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:9px;
+  padding:10px 11px;font-size:15px;outline:none;font-family:"IBM Plex Mono",monospace}
+.frow{display:flex;gap:8px;align-items:center}
+.reset{color:var(--red);border-color:rgba(215,64,47,.45)}
+
+/* ---------- статистика ---------- */
+.stats{display:flex;gap:16px;padding:11px 12px 0}
+.stat b{display:block;font-family:"Oswald",sans-serif;font-size:21px;font-weight:600;line-height:1}
+.stat i{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+
+/* ---------- сетка ---------- */
+main{padding:12px 12px calc(40px + var(--bot))}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+@media(min-width:760px){.grid{grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:18px}}
+.card{position:relative;border:0;padding:0;background:transparent;text-align:left;cursor:pointer;display:block;width:100%}
+.pw{position:relative;width:100%;aspect-ratio:2/3;border-radius:9px;overflow:hidden;background:var(--shell2);
+  box-shadow:0 6px 16px rgba(0,0,0,.45)}
+.artw{position:absolute;inset:0}
+.pw img{width:100%;height:100%;object-fit:cover;display:block}
+.card:active .pw{transform:scale(.985)}
+.ctitle{font-family:"Oswald",sans-serif;font-weight:500;font-size:13.5px;line-height:1.15;margin:7px 0 2px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cmeta{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);display:flex;gap:8px}
+.badge{position:absolute;top:7px;right:7px;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+.b{font-family:"Oswald",sans-serif;font-weight:600;font-size:12px;line-height:1;padding:4px 6px;border-radius:6px;
+  box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.b.fav{background:var(--red);color:#fff}
+.b.rate{background:var(--amber);color:var(--ink)}
+.stamp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-13deg);
+  font-family:"Oswald",sans-serif;font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(215,64,47,.95);border:2.5px double rgba(215,64,47,.9);border-radius:4px;padding:3px 8px;
+  background:rgba(12,8,10,.35);pointer-events:none;white-space:nowrap}
+.seen .artw img{filter:brightness(.62) saturate(.75)}
+
+/* запасная «кассета», если постера нет */
+.tape{position:absolute;inset:0;background:linear-gradient(168deg,var(--shell),var(--shell2));
+  display:flex;flex-direction:column;justify-content:space-between;padding:9%}
+.tlabel{background:linear-gradient(175deg,var(--paper),var(--paper2));color:#1B1418;border-radius:2px;padding:7px 8px;
+  box-shadow:0 2px 5px rgba(0,0,0,.4)}
+.tlabel .tt{font-family:"Oswald",sans-serif;font-weight:600;text-transform:uppercase;font-size:12.5px;line-height:1.05;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tlabel .ty{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:#5C4D52;margin-top:4px}
+.reels{display:flex;justify-content:space-around;align-items:center;padding:6% 4% 2%}
+.reel{width:30%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,#3A2E33 0 17%,#120C0F 18% 60%,#2A2126 61% 100%);
+  box-shadow:inset 0 0 8px rgba(0,0,0,.9)}
+.tnote{font-family:"IBM Plex Mono",monospace;font-size:8.5px;letter-spacing:.1em;color:#6E5E63;text-align:center}
+
+/* ---------- список ---------- */
+.list{display:flex;flex-direction:column;gap:2px}
+.li{display:flex;gap:11px;align-items:center;padding:9px 4px;border-bottom:1px solid rgba(58,47,52,.6);
+  background:transparent;border-left:0;border-right:0;border-top:0;width:100%;text-align:left;cursor:pointer;color:inherit}
+.li .th{width:42px;height:63px;flex:0 0 42px;border-radius:4px;overflow:hidden;background:var(--shell2)}
+.li .th img{width:100%;height:100%;object-fit:cover}
+.li .ln{font-family:"Oswald",sans-serif;font-weight:500;font-size:15px;line-height:1.15}
+.li .lm{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);margin-top:3px}
+.li .lr{margin-left:auto;text-align:right;font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+
+/* ---------- нижний лист ---------- */
+.ov{position:fixed;inset:0;background:rgba(8,5,7,.72);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:60;display:none}
+.ov.show{display:block}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;background:linear-gradient(180deg,#221A1E,#150F13);border-radius:16px 16px 0 0;
+  border-top:1px solid var(--line);padding:8px 16px calc(24px + var(--bot))}
+@media(min-width:760px){.sheet{left:50%;bottom:auto;top:50%;transform:translate(-50%,-50%);max-width:560px;border-radius:14px;border:1px solid var(--line)}}
+.grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 14px}
+.sh-h{display:flex;gap:14px}
+.sh-p{width:96px;flex:0 0 96px;aspect-ratio:2/3;border-radius:8px;overflow:hidden;background:var(--shell2);position:relative}
+.sh-p img{width:100%;height:100%;object-fit:cover}
+.sh-t{font-family:"Oswald",sans-serif;font-weight:600;text-transform:uppercase;font-size:21px;line-height:1.05;margin:0 0 6px}
+.sh-s{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);line-height:1.6}
+.big{display:flex;gap:9px;margin:16px 0}
+.big button{flex:1;min-height:48px;border-radius:11px;border:1px solid var(--line);background:var(--ink);color:var(--paper);
+  font-size:14px;cursor:pointer;font-family:"IBM Plex Mono",monospace;letter-spacing:.03em}
+.big button.on-fav{background:var(--red);border-color:var(--red);color:#fff}
+.big button.on-seen{background:var(--cyan);border-color:var(--cyan);color:var(--ink)}
+.stars{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
+.stars button{aspect-ratio:1;min-height:34px;border:1px solid var(--line);background:transparent;color:var(--muted);
+  border-radius:7px;font-family:"IBM Plex Mono",monospace;font-size:12px;cursor:pointer;padding:0}
+.stars button.on{background:var(--amber);border-color:var(--amber);color:var(--ink);font-weight:600}
+.g{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+  border:1px solid var(--line);border-radius:5px;padding:3px 6px;display:inline-block;margin:0 4px 4px 0}
+.g.xmas{color:var(--red);border-color:rgba(215,64,47,.5)}
+.note{font-size:12.5px;color:var(--muted);line-height:1.55}
+input[type=url],input[type=text].k,textarea{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:9px;
+  color:var(--paper);padding:10px 11px;font-size:16px;outline:none;font-family:"IBM Plex Mono",monospace}
+textarea{min-height:90px;font-size:12px}
+.wide{width:100%;min-height:46px;border-radius:10px;border:1px solid var(--line);background:var(--ink);color:var(--paper);
+  font-family:"IBM Plex Mono",monospace;font-size:13.5px;cursor:pointer;margin-top:8px}
+.wide.acc{background:var(--paper);color:var(--ink);border-color:var(--paper);font-weight:600}
+.warn{border:1px solid rgba(215,64,47,.55);background:rgba(215,64,47,.09);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:13px;line-height:1.5;color:var(--paper)}
+.warn b{color:var(--red)}
+.empty{text-align:center;padding:56px 18px;color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:13px}
+.ok{color:var(--cyan)} .bad{color:var(--red)}
+hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1 class="logo">Видео<b>прокат</b></h1>
+    <span class="grow"></span>
+    <div class="stats" style="padding:0;gap:14px">
+      <div class="stat"><b id="s-seen" style="color:var(--cyan)">0</b><i>смотрели</i></div>
+      <div class="stat"><b id="s-fav" style="color:var(--red)">0</b><i>избранное</i></div>
+      <div class="stat"><b id="s-avg" style="color:var(--amber)">—</b><i>средняя</i></div>
+    </div>
+    <button class="icon" id="btn-set" aria-label="Настройки">⚙</button>
+  </div>
+  <div class="bar2">
+    <input id="q" type="text" inputmode="search" placeholder="Поиск по названию" autocomplete="off">
+    <button class="fbtn" id="btn-f">Фильтры<span class="cnt" id="fcnt" hidden>0</span></button>
+    <button class="icon" id="btn-v" aria-label="Вид">☰</button>
+  </div>
+</header>
+
+<div id="filters">
+  <div class="fin">
+    <span class="lbl">Годы</span>
+    <div class="chips" id="f-dec"></div>
+    <span class="lbl">Отметки</span>
+    <div class="chips" id="f-st"></div>
+    <span class="lbl">Жанры</span>
+    <div class="chips" id="f-gen"></div>
+    <span class="lbl">Сортировка</span>
+    <select id="f-sort"></select>
+    <div class="frow" style="margin-top:12px">
+      <button class="chip amber" id="f-pick">под наш вкус</button>
+      <button class="chip reset" id="f-reset">сбросить всё</button>
+      <span class="grow"></span>
+      <span class="lbl" style="margin:0" id="f-count"></span>
+    </div>
+  </div>
+</div>
+
+<main><div id="warn" class="warn" hidden></div><div id="out"></div></main>
+
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+<script>
+/* [название RU, оригинальное название, год, жанры, популярность в СНГ 0-100, ≈рейтинг КП] */
+const RAW=[
+["Сияние","The Shining",1980,["ужасы","триллер"],76,8.0],
+["Индиана Джонс: В поисках утраченного ковчега","Raiders of the Lost Ark",1981,["приключения","боевик"],84,8.0],
+["Ва-банк","Vabank",1981,["комедия","криминал"],80,7.9],
+["Рэмбо: Первая кровь","First Blood",1982,["боевик","драма"],88,7.8],
+["Инопланетянин","E.T. the Extra-Terrestrial",1982,["фантастика","семейный"],70,7.8],
+["Тутси","Tootsie",1982,["комедия"],76,7.7],
+["Терминатор","The Terminator",1984,["фантастика","боевик"],92,8.0],
+["Индиана Джонс и храм судьбы","Indiana Jones and the Temple of Doom",1984,["приключения","боевик"],78,7.6],
+["Полицейская академия","Police Academy",1984,["комедия"],86,7.6],
+["Охотники за привидениями","Ghostbusters",1984,["комедия","фантастика"],74,7.6],
+["Однажды в Америке","Once Upon a Time in America",1984,["драма","криминал"],79,8.3],
+["Назад в будущее","Back to the Future",1985,["фантастика","комедия"],90,8.6],
+["Рэмбо: Первая кровь 2","Rambo: First Blood Part II",1985,["боевик"],85,7.4],
+["Рокки 4","Rocky IV",1985,["драма","спорт"],84,7.7],
+["Коммандо","Commando",1985,["боевик"],83,7.3],
+["Полицейская история","Police Story",1985,["боевик","комедия"],80,7.6],
+["Любовь и голуби","Любовь и голуби",1985,["комедия","мелодрама"],93,8.3],
+["Чужие","Aliens",1986,["фантастика","ужасы","боевик"],76,8.1],
+["Кин-дза-дза!","Кин-дза-дза!",1986,["фантастика","комедия"],88,8.2],
+["Курьер","Курьер",1986,["комедия","драма"],78,7.8],
+["Доспехи бога","Armour of God",1986,["приключения","боевик","комедия"],77,7.3],
+["Хищник","Predator",1987,["фантастика","боевик"],88,7.9],
+["Грязные танцы","Dirty Dancing",1987,["мелодрама","мюзикл"],82,7.6],
+["Человек с бульвара Капуцинов","Человек с бульвара Капуцинов",1987,["комедия","вестерн"],89,8.2],
+["Асса","Асса",1987,["драма","криминал","мюзикл"],76,7.6],
+["Гардемарины, вперёд!","Гардемарины, вперёд!",1987,["приключения","история"],84,7.9],
+["Крепкий орешек","Die Hard",1988,["боевик","триллер","Рождество"],90,8.0],
+["Кровавый спорт","Bloodsport",1988,["боевик","спорт"],87,7.4],
+["Кто подставил кролика Роджера","Who Framed Roger Rabbit",1988,["комедия","анимация"],70,7.6],
+["Близнецы","Twins",1988,["комедия"],80,7.1],
+["Собачье сердце","Собачье сердце",1988,["драма","фантастика"],90,8.6],
+["Нико: Над законом","Above the Law",1988,["боевик"],74,6.9],
+["Игла","Игла",1988,["драма","криминал"],74,7.6],
+["Человек дождя","Rain Man",1988,["драма"],79,8.2],
+["Индиана Джонс и последний крестовый поход","Indiana Jones and the Last Crusade",1989,["приключения","боевик"],79,8.0],
+["Назад в будущее 2","Back to the Future Part II",1989,["фантастика","комедия"],86,8.3],
+["Кикбоксер","Kickboxer",1989,["боевик","спорт"],82,7.0],
+["Русалочка","The Little Mermaid",1989,["анимация","семейный","мюзикл"],72,7.8],
+["Интердевочка","Интердевочка",1989,["драма"],82,7.4],
+["Общество мёртвых поэтов","Dead Poets Society",1989,["драма"],68,8.4],
+["Один дома","Home Alone",1990,["комедия","семейный","Рождество"],97,8.2],
+["Привидение","Ghost",1990,["мелодрама","фэнтези","триллер"],88,8.0],
+["Красотка","Pretty Woman",1990,["мелодрама","комедия"],92,8.0],
+["Вспомнить всё","Total Recall",1990,["фантастика","боевик"],82,7.7],
+["Назад в будущее 3","Back to the Future Part III",1990,["фантастика","комедия","вестерн"],82,8.1],
+["Детсадовский полицейский","Kindergarten Cop",1990,["комедия"],79,7.0],
+["Терминатор 2: Судный день","Terminator 2: Judgment Day",1991,["фантастика","боевик"],95,8.3],
+["Красавица и Чудовище","Beauty and the Beast",1991,["анимация","мюзикл","семейный"],70,8.0],
+["Молчание ягнят","The Silence of the Lambs",1991,["триллер","криминал","детектив"],76,8.3],
+["Один дома 2: Затерянный в Нью-Йорке","Home Alone 2: Lost in New York",1992,["комедия","семейный","Рождество"],94,8.0],
+["Универсальный солдат","Universal Soldier",1992,["фантастика","боевик"],84,7.1],
+["В осаде","Under Siege",1992,["боевик"],80,7.1],
+["Аладдин","Aladdin",1992,["анимация","семейный","мюзикл"],78,8.0],
+["Телохранитель","The Bodyguard",1992,["мелодрама","триллер"],86,7.6],
+["Парк Юрского периода","Jurassic Park",1993,["фантастика","приключения"],88,8.2],
+["Миссис Даутфайр","Mrs. Doubtfire",1993,["комедия","семейный"],85,7.9],
+["День сурка","Groundhog Day",1993,["комедия","мелодрама","фэнтези"],84,8.0],
+["Скалолаз","Cliffhanger",1993,["боевик","приключения"],81,7.5],
+["Список Шиндлера","Schindler's List",1993,["драма","история","военный"],74,8.8],
+["Форрест Гамп","Forrest Gump",1994,["драма","мелодрама"],93,8.9],
+["Побег из Шоушенка","The Shawshank Redemption",1994,["драма"],88,9.1],
+["Криминальное чтиво","Pulp Fiction",1994,["криминал","драма"],80,8.6],
+["Леон","Léon",1994,["криминал","драма","боевик"],90,8.7],
+["Маска","The Mask",1994,["комедия","фэнтези"],93,8.1],
+["Тупой и ещё тупее","Dumb and Dumber",1994,["комедия"],87,7.5],
+["Эйс Вентура: Розыск домашних животных","Ace Ventura: Pet Detective",1994,["комедия"],85,7.3],
+["Король Лев","The Lion King",1994,["анимация","драма","семейный"],84,8.8],
+["Правдивая ложь","True Lies",1994,["боевик","комедия"],82,7.7],
+["Пьяный мастер 2","Drunken Master II",1994,["боевик","комедия"],78,7.5],
+["Патруль времени","Timecop",1994,["фантастика","боевик"],79,7.0],
+["Интервью с вампиром","Interview with the Vampire",1994,["ужасы","драма","фэнтези"],76,7.8],
+["Храброе сердце","Braveheart",1995,["драма","история","военный"],80,8.3],
+["Семь","Se7en",1995,["триллер","криминал","детектив"],78,8.3],
+["Крепкий орешек 3: Возмездие","Die Hard with a Vengeance",1995,["боевик","триллер"],85,7.8],
+["Мосты округа Мэдисон","The Bridges of Madison County",1995,["мелодрама","драма"],74,7.9],
+["Разборка в Бронксе","Rumble in the Bronx",1995,["боевик","комедия"],76,7.1],
+["Особенности национальной охоты","Особенности национальной охоты",1995,["комедия"],88,7.8],
+["Ширли-мырли","Ширли-мырли",1995,["комедия"],82,7.6],
+["Джуманджи","Jumanji",1995,["фэнтези","приключения","семейный"],83,7.9],
+["История игрушек","Toy Story",1995,["анимация","семейный"],72,8.0],
+["Скала","The Rock",1996,["боевик","триллер"],84,7.9],
+["День независимости","Independence Day",1996,["фантастика","боевик"],83,7.5],
+["Английский пациент","The English Patient",1996,["драма","мелодрама","военный"],66,7.6],
+["Титаник","Titanic",1997,["мелодрама","драма"],97,8.4],
+["Пятый элемент","The Fifth Element",1997,["фантастика","приключения"],91,8.1],
+["Люди в чёрном","Men in Black",1997,["фантастика","комедия"],86,7.8],
+["Воздушная тюрьма","Con Air",1997,["боевик","триллер"],82,7.6],
+["Свадьба лучшего друга","My Best Friend's Wedding",1997,["комедия","мелодрама"],78,7.2],
+["Достучаться до небес","Knockin' on Heaven's Door",1997,["драма","комедия","криминал"],87,8.6],
+["Брат","Брат",1997,["криминал","драма"],92,8.2],
+["Сирота казанская","Сирота казанская",1997,["комедия","мелодрама","Рождество"],80,7.5],
+["Мама, не горюй","Мама, не горюй",1997,["комедия","криминал"],76,7.5],
+["Час пик","Rush Hour",1998,["боевик","комедия"],85,7.6],
+["Армагеддон","Armageddon",1998,["фантастика","боевик"],84,7.7],
+["Карты, деньги, два ствола","Lock, Stock and Two Smoking Barrels",1998,["криминал","комедия"],79,8.5],
+["Такси","Taxi",1998,["боевик","комедия"],86,7.8],
+["Маска Зорро","The Mask of Zorro",1998,["приключения","боевик"],82,7.7],
+["Куда приводят мечты","What Dreams May Come",1998,["драма","фэнтези","мелодрама"],76,8.0],
+["Знакомьтесь, Джо Блэк","Meet Joe Black",1998,["драма","мелодрама","фэнтези"],80,8.1],
+["Практическая магия","Practical Magic",1998,["мелодрама","фэнтези","комедия"],72,7.3],
+["Спасти рядового Райана","Saving Private Ryan",1998,["драма","военный"],80,8.2],
+["Матрица","The Matrix",1999,["фантастика","боевик"],94,8.5],
+["Зелёная миля","The Green Mile",1999,["драма","фэнтези","криминал"],90,9.1],
+["Бойцовский клуб","Fight Club",1999,["драма","триллер"],82,8.7],
+["Мумия","The Mummy",1999,["приключения","ужасы","боевик"],88,8.0],
+["Ноттинг Хилл","Notting Hill",1999,["мелодрама","комедия"],82,7.6],
+["Мужчина по вызову","Deuce Bigalow: Male Gigolo",1999,["комедия"],78,7.2],
+["Ворошиловский стрелок","Ворошиловский стрелок",1999,["драма","криминал"],84,7.8],
+["Брат 2","Брат 2",2000,["криминал","боевик","комедия"],94,8.0],
+["Большой куш","Snatch",2000,["криминал","комедия"],86,8.5],
+["Гладиатор","Gladiator",2000,["драма","история","боевик"],85,8.6],
+["Знакомство с родителями","Meet the Parents",2000,["комедия"],82,7.5],
+["Гринч — похититель Рождества","How the Grinch Stole Christmas",2000,["комедия","семейный","Рождество"],80,7.6],
+["Осень в Нью-Йорке","Autumn in New York",2000,["мелодрама","драма"],74,7.4],
+["Властелин колец: Братство Кольца","The Lord of the Rings: The Fellowship of the Ring",2001,["фэнтези","приключения"],88,8.6],
+["Гарри Поттер и философский камень","Harry Potter and the Philosopher's Stone",2001,["фэнтези","семейный","приключения"],88,8.2],
+["Шрек","Shrek",2001,["анимация","комедия","семейный"],92,8.3],
+["Дневник Бриджит Джонс","Bridget Jones's Diary",2001,["комедия","мелодрама"],84,7.6],
+["Амели","Amélie",2001,["комедия","мелодрама"],82,8.3],
+["Игры разума","A Beautiful Mind",2001,["драма","биография"],76,8.4],
+["Корпорация монстров","Monsters, Inc.",2001,["анимация","комедия","семейный"],80,8.2],
+["Час пик 2","Rush Hour 2",2001,["боевик","комедия"],80,7.4],
+["Сладкий ноябрь","Sweet November",2001,["мелодрама","драма"],78,7.7],
+["Блондинка в законе","Legally Blonde",2001,["комедия"],76,7.2],
+["Мумия возвращается","The Mummy Returns",2001,["приключения","боевик"],84,7.6],
+["Поймай меня, если сможешь","Catch Me If You Can",2002,["криминал","драма","комедия","биография"],86,8.3],
+["Властелин колец: Две крепости","The Lord of the Rings: The Two Towers",2002,["фэнтези","приключения"],84,8.6],
+["Ледниковый период","Ice Age",2002,["анимация","комедия","семейный"],92,8.3],
+["Астерикс и Обеликс: Миссия «Клеопатра»","Astérix & Obélix: Mission Cléopâtre",2002,["комедия","приключения"],84,7.8],
+["Спеши любить","A Walk to Remember",2002,["мелодрама","драма"],84,8.0],
+["Человек-паук","Spider-Man",2002,["боевик","фантастика"],82,7.6],
+["Антикиллер","Антикиллер",2002,["криминал","боевик"],74,6.5],
+["Властелин колец: Возвращение короля","The Lord of the Rings: The Return of the King",2003,["фэнтези","приключения"],86,8.7],
+["Пираты Карибского моря: Проклятие «Чёрной жемчужины»","Pirates of the Caribbean: The Curse of the Black Pearl",2003,["приключения","фэнтези"],92,8.4],
+["Реальная любовь","Love Actually",2003,["мелодрама","комедия","Рождество"],86,8.0],
+["В поисках Немо","Finding Nemo",2003,["анимация","семейный"],80,8.2],
+["Плохой Санта","Bad Santa",2003,["комедия","Рождество"],72,7.0],
+["Эльф","Elf",2003,["комедия","семейный","Рождество"],66,7.0],
+["Бумер","Бумер",2003,["драма","криминал"],88,7.7],
+["Возвращение","Возвращение",2003,["драма"],68,7.4],
+["Как отделаться от парня за 10 дней","How to Lose a Guy in 10 Days",2003,["комедия","мелодрама"],80,7.3],
+["Терминатор 3: Восстание машин","Terminator 3: Rise of the Machines",2003,["фантастика","боевик"],80,7.1],
+["Убить Билла","Kill Bill: Vol. 1",2003,["боевик","криминал"],78,7.9],
+["Дневник памяти","The Notebook",2004,["мелодрама","драма"],84,8.1],
+["Ночной дозор","Ночной дозор",2004,["фэнтези","боевик"],90,6.5],
+["Бриджит Джонс: Грани разумного","Bridget Jones: The Edge of Reason",2004,["комедия","мелодрама"],78,7.1],
+["Шрек 2","Shrek 2",2004,["анимация","комедия","семейный"],88,8.2],
+["Полярный экспресс","The Polar Express",2004,["анимация","семейный","Рождество"],70,7.5],
+["Вечное сияние чистого разума","Eternal Sunshine of the Spotless Mind",2004,["мелодрама","фантастика","драма"],76,8.0],
+["Мистер и миссис Смит","Mr. & Mrs. Smith",2005,["боевик","комедия","мелодрама"],84,7.6],
+["9 рота","9 рота",2005,["драма","военный"],86,7.6],
+["Жмурки","Жмурки",2005,["криминал","комедия"],82,7.6],
+["Мадагаскар","Madagascar",2005,["анимация","комедия","семейный"],86,7.9],
+["Хроники Нарнии: Лев, колдунья и волшебный шкаф","The Chronicles of Narnia: The Lion, the Witch and the Wardrobe",2005,["фэнтези","приключения","семейный"],78,7.7],
+["Дом у озера","The Lake House",2006,["мелодрама","фэнтези","драма"],82,7.7],
+["Отпуск по обмену","The Holiday",2006,["мелодрама","комедия","Рождество"],80,7.9],
+["Дьявол носит Prada","The Devil Wears Prada",2006,["комедия","драма"],84,7.8],
+["Дневной дозор","Дневной дозор",2006,["фэнтези","боевик"],84,6.4],
+["Питер FM","Питер FM",2006,["мелодрама","комедия"],74,7.3],
+["Жара","Жара",2006,["комедия","мелодрама"],70,5.8],
+["Остров","Остров",2006,["драма"],76,7.9],
+["Тачки","Cars",2006,["анимация","семейный"],78,7.9],
+["Пираты Карибского моря: Сундук мертвеца","Pirates of the Caribbean: Dead Man's Chest",2006,["приключения","фэнтези"],86,8.0],
+["Рататуй","Ratatouille",2007,["анимация","комедия","семейный"],80,8.2],
+["P.S. Я люблю тебя","P.S. I Love You",2007,["мелодрама","драма"],82,8.0],
+["Ирония судьбы. Продолжение","Ирония судьбы. Продолжение",2007,["комедия","мелодрама","Рождество"],82,5.9],
+["Я — легенда","I Am Legend",2007,["фантастика","триллер"],80,7.5],
+["ВАЛЛ·И","WALL·E",2008,["анимация","фантастика","семейный"],76,8.2],
+["Кунг-фу Панда","Kung Fu Panda",2008,["анимация","комедия","семейный"],84,8.1],
+["Стиляги","Стиляги",2008,["мюзикл","драма"],78,7.6],
+["Тёмный рыцарь","The Dark Knight",2008,["боевик","криминал","драма"],78,8.5],
+["Мамма мия!","Mamma Mia!",2008,["мюзикл","комедия","мелодрама"],72,7.2],
+["Хатико: Самый верный друг","Hachi: A Dog's Tale",2009,["драма","семейный"],92,8.4],
+["Предложение","The Proposal",2009,["комедия","мелодрама"],84,7.6],
+["Аватар","Avatar",2009,["фантастика","приключения"],90,7.9],
+["Мальчишник в Вегасе","The Hangover",2009,["комедия"],84,7.7],
+["Вверх","Up",2009,["анимация","семейный"],78,8.3],
+["Шерлок Холмс","Sherlock Holmes",2009,["детектив","боевик","приключения"],82,7.9]
+];
+
+/* ================= данные ================= */
+const dec = y => y < 1990 ? "80-е" : y < 2000 ? "90-е" : "2000-е";
+const slug = (t,y) => t.toLowerCase().replace(/[^a-zа-яё0-9]+/gi,"-").replace(/^-|-$/g,"")+"-"+y;
+const isPick = g => g.includes("Рождество")
+  || (g.includes("мелодрама") && (g.includes("комедия") || g.includes("фэнтези")))
+  || (g.includes("биография") && g.includes("криминал"));
+
+const FILMS = RAW.map(([ru,orig,year,genres,cis,kp]) => ({
+  id: slug(ru,year), ru, orig, year, genres, cis, kp, dec: dec(year), pick: isPick(genres)
+}));
+const GENRES = [...new Set(FILMS.flatMap(f=>f.genres))]
+  .sort((a,b)=> a==="Рождество" ? -1 : b==="Рождество" ? 1 : a.localeCompare(b,"ru"));
+const SORTS = [["cis","популярность в СНГ"],["kp","рейтинг ≈КП"],["mine","моя оценка"],
+  ["new","год: новые сначала"],["old","год: старые сначала"],["az","название А–Я"]];
+const STATUS = [["all","все"],["fav","избранное"],["seen","просмотрено"],["unseen","ещё не смотрели"],["rated","с оценкой"]];
+
+/* ================= состояние ================= */
+const TMDB_DEFAULT = "746efd3a3b7053cdb7fe2cb1ff15002c";
+const KEY = "videoprokat.v2";
+const D = { fav:[], seen:[], rate:{}, poster:{}, cache:{}, tmdb:TMDB_DEFAULT, sort:"cis", view:"grid" };
+let S = Object.assign({}, D);
+try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign({}, D, JSON.parse(raw)); } catch(e){}
+if (!S.tmdb) S.tmdb = TMDB_DEFAULT;
+let saveT = null;
+function save(now){
+  clearTimeout(saveT);
+  const go = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} };
+  now ? go() : saveT = setTimeout(go, 250);
+}
+
+let F = { q:"", dec:[], gen:[], st:"all", pick:false };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $ = s => document.querySelector(s);
+const posterOf = f => S.poster[f.id] || (S.cache[f.id] ? "https://image.tmdb.org/t/p/w342"+S.cache[f.id] : "");
+
+/* ================= постеры (TMDB) ================= */
+const queue = []; let active = 0; let pending = 0;
+function needPoster(f){
+  if (!S.tmdb || S.poster[f.id] || S.cache[f.id] !== undefined) return;
+  if (queue.includes(f.id)) return;
+  queue.push(f.id); pump();
+}
+function pump(){
+  while (active < 3 && queue.length){
+    const id = queue.shift(); const f = FILMS.find(x=>x.id===id);
+    if (!f || S.cache[f.id] !== undefined) continue;
+    active++; pending++;
+    lookup(f).then(path => {
+      S.cache[f.id] = path || "";
+      const el = document.querySelector('[data-p="'+f.id+'"]');
+      if (el && path) el.innerHTML = '<img loading="lazy" alt="" src="https://image.tmdb.org/t/p/w342'+path+'">';
+      save();
+    }).catch(e => { netFail(e); }).finally(()=>{ active--; pending--; pump(); progress(); });
+  }
+  progress();
+}
+let warned = false;
+function netFail(e){
+  if (warned) return; warned = true;
+  const w = document.getElementById("warn");
+  if (!w) return;
+  w.hidden = false;
+  w.innerHTML = '<b>Постеры не грузятся.</b> ' + esc(e && e.message ? e.message : "запрос не ушёл")
+    + '<br>Откройте ⚙ → «проверить связь» — там будет точная причина.';
+}
+function progress(){
+  const b = $("#pb");
+  if (b) b.textContent = (queue.length + pending) ? "Загружаю постеры… осталось " + (queue.length + pending) : "Все постеры загружены";
+}
+async function lookup(f){
+  const tryQ = async (q, year, lang) => {
+    const url = "https://api.themoviedb.org/3/search/movie?include_adult=false&language=" + lang
+      + "&api_key=" + encodeURIComponent(S.tmdb)
+      + "&query=" + encodeURIComponent(q) + (year ? "&year=" + year : "");
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    const list = (j.results||[]).filter(x=>x.poster_path);
+    if (!list.length) return null;
+    const exact = list.find(x => (x.release_date||"").slice(0,4) == f.year)
+      || list.find(x => Math.abs(((x.release_date||"0").slice(0,4)|0) - f.year) <= 1);
+    return (exact || list[0]).poster_path;
+  };
+  return (await tryQ(f.orig, f.year, "ru-RU"))
+      || (await tryQ(f.orig, f.year, "en-US"))
+      || (await tryQ(f.ru,   f.year, "ru-RU"))
+      || (await tryQ(f.orig, null,   "en-US"))
+      || null;
+}
+let io = null;
+function observe(){
+  if (io) io.disconnect();
+  if (!S.tmdb) return;
+  if (typeof IntersectionObserver === "undefined"){ fetchAll(); return; }
+  io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting){ const f = FILMS.find(x=>x.id===e.target.dataset.p); if (f) needPoster(f); io.unobserve(e.target); }
+  }), { rootMargin: "600px 0px" });
+  document.querySelectorAll("[data-p]").forEach(el => io.observe(el));
+}
+function fetchAll(){
+  if (!S.tmdb) return;
+  FILMS.forEach(f => { if (S.cache[f.id] === undefined && !S.poster[f.id]) needPoster(f); });
+}
+
+/* ================= фильтрация ================= */
+function visible(){
+  const n = F.q.trim().toLowerCase();
+  const out = FILMS.filter(f => {
+    if (n && !(f.ru.toLowerCase().includes(n) || f.orig.toLowerCase().includes(n))) return false;
+    if (F.dec.length && !F.dec.includes(f.dec)) return false;
+    if (F.gen.length && !f.genres.some(g => F.gen.includes(g))) return false;
+    if (F.pick && !f.pick) return false;
+    if (F.st === "fav" && !S.fav.includes(f.id)) return false;
+    if (F.st === "seen" && !S.seen.includes(f.id)) return false;
+    if (F.st === "unseen" && S.seen.includes(f.id)) return false;
+    if (F.st === "rated" && !S.rate[f.id]) return false;
+    return true;
+  });
+  const mine = f => S.rate[f.id] || -1;
+  const cmp = { cis:(a,b)=>b.cis-a.cis||b.kp-a.kp, kp:(a,b)=>b.kp-a.kp||b.cis-a.cis,
+    mine:(a,b)=>mine(b)-mine(a)||b.cis-a.cis, new:(a,b)=>b.year-a.year||b.cis-a.cis,
+    old:(a,b)=>a.year-b.year||b.cis-a.cis, az:(a,b)=>a.ru.localeCompare(b.ru,"ru") }[S.sort];
+  return out.sort(cmp);
+}
+
+/* ================= разметка ================= */
+function art(f){
+  const p = posterOf(f);
+  if (p) return '<img loading="lazy" alt="" src="'+esc(p)+'" onerror="this.style.display=\'none\'">';
+  return '<div class="tape"><div class="tlabel"><div class="tt">'+esc(f.ru)+'</div>'
+    + '<div class="ty">'+f.year+' · '+f.dec+'</div></div>'
+    + '<div class="reels"><div class="reel"></div><div class="reel"></div></div>'
+    + '<div class="tnote">' + (S.tmdb ? "постер не найден" : "постеры выкл.") + '</div></div>';
+}
+function cardHTML(f){
+  const fav = S.fav.includes(f.id), seen = S.seen.includes(f.id), r = S.rate[f.id];
+  return '<button class="card'+(seen?" seen":"")+'" data-open="'+f.id+'">'
+    + '<div class="pw">'
+    +   '<div class="artw" data-p="'+f.id+'">'+art(f)+'</div>'
+    +   (fav||r ? '<div class="badge">'+(fav?'<span class="b fav">❤</span>':'')+(r?'<span class="b rate">'+r+'</span>':'')+'</div>' : '')
+    +   (seen ? '<span class="stamp">Просмотрено</span>' : '')
+    + '</div>'
+    + '<div class="ctitle">'+esc(f.ru)+'</div>'
+    + '<div class="cmeta"><span>'+f.year+'</span><span>СНГ '+f.cis+'</span><span>★'+f.kp.toFixed(1)+'</span></div>'
+    + '</button>';
+}
+function rowHTML(f){
+  const fav = S.fav.includes(f.id), seen = S.seen.includes(f.id), r = S.rate[f.id];
+  const p = posterOf(f);
+  return '<button class="li" data-open="'+f.id+'">'
+    + '<div class="th" data-p="'+f.id+'">'+(p?'<img loading="lazy" alt="" src="'+esc(p)+'">':'')+'</div>'
+    + '<div><div class="ln">'+esc(f.ru)+(fav?' <span style="color:var(--red)">❤</span>':'')+(seen?' <span style="color:var(--cyan)">✓</span>':'')+'</div>'
+    + '<div class="lm">'+f.year+' · '+esc(f.genres.slice(0,3).join(" · "))+'</div></div>'
+    + '<div class="lr"><span style="color:var(--amber)">'+(r?r:'—')+'</span><br><span style="color:var(--muted)">СНГ '+f.cis+'</span></div>'
+    + '</button>';
+}
+function render(){
+  const list = visible();
+  $("#f-count").textContent = list.length + " из " + FILMS.length;
+  const n = F.dec.length + F.gen.length + (F.st!=="all"?1:0) + (F.pick?1:0);
+  const c = $("#fcnt"); c.hidden = !n; c.textContent = n;
+  $("#btn-v").textContent = S.view === "grid" ? "☰" : "▦";
+  $("#out").innerHTML = !list.length
+    ? '<div class="empty">На этой полке пусто.<br>Снимите пару фильтров — фильмы вернутся.</div>'
+    : (S.view === "grid" ? '<div class="grid">'+list.map(cardHTML).join("")+'</div>'
+                         : '<div class="list">'+list.map(rowHTML).join("")+'</div>');
+  const rated = Object.values(S.rate);
+  $("#s-seen").textContent = S.seen.length;
+  $("#s-fav").textContent = S.fav.length;
+  $("#s-avg").textContent = rated.length ? (rated.reduce((a,b)=>a+b,0)/rated.length).toFixed(1) : "—";
+  observe();
+}
+
+/* ================= карточка фильма ================= */
+function openFilm(id){
+  const f = FILMS.find(x=>x.id===id); if (!f) return;
+  const fav = S.fav.includes(id), seen = S.seen.includes(id), r = S.rate[id] || 0;
+  const p = posterOf(f);
+  $("#sheet").innerHTML = '<div class="grab"></div>'
+    + '<div class="sh-h">'
+    +   '<div class="sh-p" data-p="'+f.id+'">'+(p?'<img alt="" src="'+esc(p)+'">':art(f))+'</div>'
+    +   '<div style="min-width:0">'
+    +     '<h2 class="sh-t">'+esc(f.ru)+'</h2>'
+    +     '<div class="sh-s">'+esc(f.orig)+'<br>'+f.year+' · '+f.dec+'<br>СНГ '+f.cis+'/100 · ≈КП '+f.kp.toFixed(1)+'</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="margin:14px 0 0">'+f.genres.map(g=>'<span class="g'+(g==="Рождество"?" xmas":"")+'">'+esc(g)+'</span>').join("")
+    +   (f.pick?'<span class="g" style="color:var(--amber);border-color:rgba(239,169,59,.5)">под наш вкус</span>':'')+'</div>'
+    + '<div class="big">'
+    +   '<button data-act="fav" class="'+(fav?"on-fav":"")+'">'+(fav?"❤ в избранном":"♡ в избранное")+'</button>'
+    +   '<button data-act="seen" class="'+(seen?"on-seen":"")+'">'+(seen?"✓ просмотрено":"отметить")+'</button>'
+    + '</div>'
+    + '<span class="lbl">Наша оценка</span>'
+    + '<div class="stars">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-rate="'+n+'" class="'+(r===n?"on":"")+'">'+n+'</button>').join("")+'</div>'
+    + '<hr>'
+    + '<span class="lbl">Своя обложка (ссылка на картинку)</span>'
+    + '<input type="url" id="pu" placeholder="https://…" value="'+esc(S.poster[id]||"")+'">'
+    + '<button class="wide" data-act="setposter">сохранить обложку</button>'
+    + (S.poster[id] ? '<button class="wide" data-act="delposter">убрать обложку</button>' : '')
+    + '<button class="wide" data-act="close" style="margin-top:14px">закрыть</button>';
+  $("#sheet").dataset.film = id;
+  $("#ov").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+
+/* ================= настройки ================= */
+function openSettings(){
+  const cached = Object.keys(S.cache).filter(k=>S.cache[k]).length;
+  $("#sheet").innerHTML = '<div class="grab"></div>'
+    + '<h2 class="sh-t">Настройки</h2>'
+    + '<span class="lbl" style="margin-top:14px">Ключ TMDB (уже вшит в файл)</span>'
+    + '<input type="text" class="k" id="tk" placeholder="api key v3" value="'+esc(S.tmdb)+'" autocapitalize="off" autocorrect="off" spellcheck="false">'
+    + '<button class="wide acc" data-act="savekey">проверить и сохранить</button>'
+    + '<button class="wide" data-act="diag">проверить связь</button>'
+    + '<div class="note" id="ks" style="margin-top:8px"></div>'
+    + '<button class="wide" data-act="fetchall">загрузить все постеры сейчас</button>'
+    + '<div class="note" id="pb" style="margin-top:8px">Постеров в памяти: '+cached+' из '+FILMS.length+'</div>'
+    + '<div class="note" style="margin-top:10px">Ключ уже прописан внутри файла — вводить ничего не нужно. Поле пригодится, если решите перевыпустить ключ на themoviedb.org → Settings → API: вставьте новый и сохраните.</div>'
+    + '<hr>'
+    + '<span class="lbl">Резервная копия отметок</span>'
+    + '<button class="wide" data-act="backup">скопировать копию в буфер</button>'
+    + '<textarea id="rst" placeholder="Вставьте сюда копию и нажмите «восстановить»"></textarea>'
+    + '<button class="wide" data-act="restore">восстановить</button>'
+    + '<div class="note" id="bs" style="margin-top:8px"></div>'
+    + '<div class="note" style="margin-top:10px">Safari может очистить данные сайта, если не заходить недели. Добавьте каталог на экран «Домой» и раз в пару месяцев делайте копию.</div>'
+    + '<hr>'
+    + '<button class="wide" data-act="clearcache">очистить кэш постеров</button>'
+    + '<button class="wide" data-act="close" style="margin-top:14px">закрыть</button>';
+  delete $("#sheet").dataset.film;
+  $("#ov").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+async function diagnose(){
+  const out = $("#ks"); const L = []; const put = () => { out.className = "note"; out.innerHTML = L.join("<br>"); };
+  L.push("Адрес страницы: " + location.protocol + "//" + (location.host || "—"));
+  if (location.protocol === "file:")
+    L.push('<span class="bad">Страница открыта как локальный файл. В этом режиме Safari не пускает её в интернет, поэтому постеров не будет. Нужен обычный https-адрес.</span>');
+  if (window.self !== window.top)
+    L.push('<span class="bad">Страница показана внутри чужого окна (предпросмотр). Такие окна блокируют внешние запросы — откройте файл по своему адресу.</span>');
+  put();
+  let path = null;
+  try {
+    const r = await fetch("https://api.themoviedb.org/3/search/movie?query=Home%20Alone&year=1990&api_key=" + encodeURIComponent(S.tmdb));
+    if (r.status === 401) L.push('<span class="bad">TMDB не принял ключ (401). Перевыпустите его в Settings → API.</span>');
+    else if (r.status === 429) L.push('<span class="bad">TMDB просит подождать (429). Повторите через минуту.</span>');
+    else if (!r.ok) L.push('<span class="bad">TMDB ответил ошибкой ' + r.status + '.</span>');
+    else {
+      const j = await r.json();
+      const hit = (j.results || []).filter(x => x.poster_path)[0];
+      path = hit ? hit.poster_path : null;
+      L.push('<span class="ok">API отвечает, ключ рабочий' + (path ? ", тестовый фильм найден" : "") + '.</span>');
+    }
+  } catch (e) {
+    L.push('<span class="bad">Запрос к TMDB не ушёл: ' + esc(e.message) + '.</span>');
+    L.push("Так бывает, если страница открыта как файл, показана в предпросмотре или нет интернета.");
+  }
+  put();
+  if (path) {
+    const ok = await new Promise(res => { const im = new Image(); im.onload = () => res(true); im.onerror = () => res(false); im.src = "https://image.tmdb.org/t/p/w92" + path; });
+    L.push(ok ? '<span class="ok">Картинки с image.tmdb.org открываются — всё в порядке, жмите «загрузить все постеры».</span>'
+              : '<span class="bad">API работает, но сами картинки заблокированы окружением страницы.</span>');
+    put();
+  }
+}
+function closeSheet(){
+  $("#ov").classList.remove("show");
+  document.body.style.overflow = "";
+}
+
+/* ================= события ================= */
+$("#out").addEventListener("click", e => {
+  const b = e.target.closest("[data-open]"); if (b) openFilm(b.dataset.open);
+});
+$("#ov").addEventListener("click", e => { if (e.target === $("#ov")) closeSheet(); });
+
+$("#sheet").addEventListener("click", async e => {
+  const id = $("#sheet").dataset.film;
+  const rb = e.target.closest("[data-rate]");
+  if (rb && id){
+    const n = +rb.dataset.rate;
+    if (S.rate[id] === n) delete S.rate[id]; else { S.rate[id] = n; if (!S.seen.includes(id)) S.seen.push(id); }
+    save(true); openFilm(id); render(); return;
+  }
+  const ab = e.target.closest("[data-act]"); if (!ab) return;
+  const act = ab.dataset.act;
+  if (act === "close") return closeSheet();
+  if (act === "fav" && id){ S.fav = S.fav.includes(id) ? S.fav.filter(x=>x!==id) : S.fav.concat(id); save(true); openFilm(id); render(); return; }
+  if (act === "seen" && id){ S.seen = S.seen.includes(id) ? S.seen.filter(x=>x!==id) : S.seen.concat(id); save(true); openFilm(id); render(); return; }
+  if (act === "setposter" && id){ const v = $("#pu").value.trim(); if (v) S.poster[id] = v; else delete S.poster[id]; save(true); openFilm(id); render(); return; }
+  if (act === "delposter" && id){ delete S.poster[id]; save(true); openFilm(id); render(); return; }
+  if (act === "savekey"){
+    const k = $("#tk").value.trim(); const st = $("#ks");
+    st.textContent = "Проверяю…"; st.className = "note";
+    try{
+      const r = await fetch("https://api.themoviedb.org/3/configuration?api_key=" + encodeURIComponent(k));
+      if (!r.ok) throw new Error(r.status === 401 ? "ключ не подошёл" : "ошибка сети " + r.status);
+      S.tmdb = k; save(true);
+      st.textContent = "Ключ работает. Постеры начнут подгружаться."; st.className = "note ok";
+      render(); fetchAll();
+    } catch(err){
+      st.textContent = "Не получилось: " + err.message + ". Проверьте ключ и интернет.";
+      st.className = "note bad";
+    }
+    return;
+  }
+  if (act === "fetchall"){ warned = false; document.getElementById("warn").hidden = true; fetchAll(); return; }
+  if (act === "diag"){ diagnose(); return; }
+  if (act === "clearcache"){ S.cache = {}; save(true); render(); openSettings(); return; }
+  if (act === "backup"){
+    const data = JSON.stringify({ fav:S.fav, seen:S.seen, rate:S.rate, poster:S.poster });
+    try { await navigator.clipboard.writeText(data); $("#bs").textContent = "Копия в буфере обмена — сохраните её в заметках."; $("#bs").className = "note ok"; }
+    catch(err){ $("#rst").value = data; $("#bs").textContent = "Буфер недоступен — копия в поле выше, скопируйте вручную."; $("#bs").className = "note"; }
+    return;
+  }
+  if (act === "restore"){
+    try{
+      const v = JSON.parse($("#rst").value.trim());
+      S.fav = v.fav||[]; S.seen = v.seen||[]; S.rate = v.rate||{}; S.poster = v.poster||{};
+      save(true); render(); $("#bs").textContent = "Готово: " + S.seen.length + " просмотренных, " + S.fav.length + " в избранном."; $("#bs").className = "note ok";
+    } catch(err){ $("#bs").textContent = "Не похоже на резервную копию — вставьте текст целиком."; $("#bs").className = "note bad"; }
+    return;
+  }
+});
+
+$("#btn-set").addEventListener("click", openSettings);
+$("#btn-f").addEventListener("click", () => {
+  const open = $("#filters").classList.toggle("open");
+  $("#btn-f").classList.toggle("on", open);
+});
+$("#btn-v").addEventListener("click", () => { S.view = S.view === "grid" ? "list" : "grid"; save(true); render(); });
+let qt = null;
+$("#q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { F.q = e.target.value; render(); }, 140); });
+
+/* ---- чипы фильтров ---- */
+function chips(host, items, isOn, onTap, cls){
+  host.innerHTML = items.map(([v,l]) => '<button class="chip'+(cls?" "+cls:"")+(isOn(v)?" on":"")+'" data-v="'+esc(v)+'">'+esc(l)+'</button>').join("");
+  host.onclick = e => { const b = e.target.closest(".chip"); if (!b) return; onTap(b.dataset.v); buildFilters(); render(); };
+}
+function buildFilters(){
+  chips($("#f-dec"), [["80-е","80-е"],["90-е","90-е"],["2000-е","2000-е"]], v => F.dec.includes(v),
+    v => F.dec = F.dec.includes(v) ? F.dec.filter(x=>x!==v) : F.dec.concat(v));
+  chips($("#f-st"), STATUS, v => F.st === v, v => F.st = v, "cyan");
+  chips($("#f-gen"), GENRES.map(g=>[g,g]), v => F.gen.includes(v),
+    v => F.gen = F.gen.includes(v) ? F.gen.filter(x=>x!==v) : F.gen.concat(v));
+  $("#f-pick").classList.toggle("on", F.pick);
+}
+$("#f-pick").addEventListener("click", () => { F.pick = !F.pick; buildFilters(); render(); });
+$("#f-reset").addEventListener("click", () => { F = { q:"", dec:[], gen:[], st:"all", pick:false }; $("#q").value = ""; buildFilters(); render(); });
+$("#f-sort").innerHTML = SORTS.map(([k,l]) => '<option value="'+k+'">'+l+'</option>').join("");
+$("#f-sort").value = S.sort;
+$("#f-sort").addEventListener("change", e => { S.sort = e.target.value; save(true); render(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+
+buildFilters();
+render();
+if (S.tmdb) fetchAll();
+
+</script>
+</body>
+</html>
