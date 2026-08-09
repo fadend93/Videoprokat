@@ -92,6 +92,10 @@ main{padding:12px 12px calc(40px + var(--bot))}
   box-shadow:0 2px 6px rgba(0,0,0,.5)}
 .b.fav{background:var(--red);color:#fff}
 .b.rate{background:var(--amber);color:var(--ink)}
+.orig{position:absolute;left:6px;bottom:6px;font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.09em;
+  text-transform:uppercase;line-height:1;padding:3px 5px;border-radius:5px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.orig.ours{background:rgba(239,169,59,.92);color:var(--ink);font-weight:600}
+.orig.far{background:rgba(14,10,12,.66);color:var(--paper);border:1px solid rgba(255,255,255,.22)}
 .stamp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-13deg);
   font-family:"Oswald",sans-serif;font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;
   color:rgba(215,64,47,.95);border:2.5px double rgba(215,64,47,.9);border-radius:4px;padding:3px 8px;
@@ -176,6 +180,8 @@ textarea{min-height:90px;font-size:12px}
 #btn-set{position:relative}
 .warn{border:1px solid rgba(215,64,47,.55);background:rgba(215,64,47,.09);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:13px;line-height:1.5;color:var(--paper)}
 .warn b{color:var(--red)}
+.warn.info{border-color:rgba(84,203,211,.5);background:rgba(84,203,211,.08)}
+.warn.info b{color:var(--cyan)}
 .empty{text-align:center;padding:56px 18px;color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:13px}
 .ok{color:var(--cyan)} .bad{color:var(--red)}
 hr{border:0;border-top:1px solid var(--line);margin:18px 0}
@@ -207,6 +213,8 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
     <div class="chips" id="f-dec"></div>
     <span class="lbl">Отметки</span>
     <div class="chips" id="f-st"></div>
+    <span class="lbl">Откуда кино</span>
+    <div class="chips" id="f-from"></div>
     <span class="lbl">Жанры</span>
     <div class="chips" id="f-gen"></div>
     <span class="lbl">Сортировка</span>
@@ -221,7 +229,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   </div>
 </div>
 
-<main><div id="warn" class="warn" hidden></div><div id="out"></div></main>
+<main><div id="warn" class="warn" hidden></div><div id="load" class="warn info" hidden></div><div id="out"></div></main>
 
 <div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
 <script>
@@ -694,8 +702,38 @@ const isPick = g => g.includes("Рождество")
   || (g.includes("мелодрама") && (g.includes("комедия") || g.includes("фэнтези")))
   || (g.includes("биография") && g.includes("криминал"));
 
+const BUILD = "09.08.2026 · каталог целиком";
 const CAT_KEY = "videoprokat.catalog.v2";
+const IDB_NAME = "videoprokat", IDB_STORE = "cat";
+function idb(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(k){
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const q = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(k);
+    q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+  });
+}
+async function idbSet(k, v){
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const q = db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).put(v, k);
+    q.onsuccess = () => res(); q.onerror = () => rej(q.error);
+  });
+}
 const norm = t => String(t||"").toLowerCase().replace(/[^a-zа-яё0-9]/gi, "");
+const CIS_LANG = ["ru","uk","be","kk","uz","az","hy","ka","ky","tg","tk","mo"];
+const CYR = /[А-Яа-яЁёІіЇїЄєҐґЎў]/;
+// у старых записей языка нет — тогда смотрим на кириллицу в оригинальном названии
+function isCIS(f){
+  return f.lang ? CIS_LANG.indexOf(f.lang) >= 0 : CYR.test(f.orig || "");
+}
 
 /* жанры TMDB по-русски */
 const TG = {28:"боевик",12:"приключения",16:"анимация",35:"комедия",80:"криминал",99:"документальный",
@@ -703,7 +741,8 @@ const TG = {28:"боевик",12:"приключения",16:"анимация",
 10749:"мелодрама",878:"фантастика",10770:"телефильм",53:"триллер",10752:"военный",37:"вестерн"};
 
 let CATALOG = [];      // [tmdbId, ru, orig, year, [genreIds], voteAvg, popularity, posterPath]
-try { const raw = localStorage.getItem(CAT_KEY); if (raw) CATALOG = JSON.parse(raw); } catch(e){}
+// старый каталог из localStorage подхватываем и освобождаем место
+try { const raw = localStorage.getItem(CAT_KEY); if (raw){ CATALOG = JSON.parse(raw); localStorage.removeItem(CAT_KEY); } } catch(e){}
 
 let FILMS = [], GENRES = [], SAGA = {};
 
@@ -726,7 +765,7 @@ function buildFilms(){
     extra.push({
       id: "tmdb-" + c[0], ru, orig, year, genres,
       cis: null, kp: c[5] || 0, pop: Math.min(99, Math.round(Math.log10((c[6]||1) + 1) * 40)),
-      dec: dec(year), pick: isPick(genres), core: false, path: c[7] || ""
+      dec: dec(year), pick: isPick(genres), core: false, path: c[7] || "", lang: c[8] || ""
     });
   });
 
@@ -807,7 +846,7 @@ const KEY = "videoprokat.v2";
 const SB_URL = "https://oemtatnfceeixqdkjzdn.supabase.co";
 const SB_KEY = "sb_publishable_FpoDDhkZDRwngrVpReesIA_-y-RaLlv";
 const D = { fav:[], seen:[], rate:{}, poster:{}, cache:{}, tmdb:TMDB_DEFAULT, sort:"cis", view:"grid",
-            room:"", person:"Я", mate:{}, dirty:{} };
+            room:"", person:"Я", mate:{}, dirty:{}, catYears:{}, votes:10 };
 let S = Object.assign({}, D);
 try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign({}, D, JSON.parse(raw)); } catch(e){}
 if (!S.tmdb) S.tmdb = TMDB_DEFAULT;
@@ -818,7 +857,7 @@ function save(now){
   now ? go() : saveT = setTimeout(go, 250);
 }
 
-let F = { q:"", dec:[], gen:[], st:"all", pick:false, core:false };
+let F = { q:"", dec:[], gen:[], st:"all", pick:false, core:false, from:"" };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const $ = s => document.querySelector(s);
 const posterOf = f => S.poster[f.id]
@@ -896,52 +935,82 @@ function fetchAll(){
 
 /* ================= загрузка каталога с TMDB ================= */
 let loading = false;
-function catStatus(t){ const el = document.getElementById("cs"); if (el) el.innerHTML = t; }
+function catStatus(t, done){
+  const el = document.getElementById("cs"); if (el) el.innerHTML = t;
+  const b = document.getElementById("load");
+  if (!b) return;
+  b.hidden = false; b.innerHTML = t;
+  if (done) setTimeout(() => { b.hidden = true; }, 8000);
+}
+const YEAR_FROM = 1980, YEAR_TO = 2015;
+const yearsLeft = () => {
+  const out = [];
+  for (let y = YEAR_FROM; y <= YEAR_TO; y++) if (!S.catYears[y]) out.push(y);
+  return out;
+};
 
-async function loadCatalog(perYear){
+async function loadCatalog(restart){
   if (loading || !S.tmdb) return;
   loading = true;
-  const pages = Math.ceil(perYear / 20);
-  const years = []; for (let y = 1980; y <= 2015; y++) years.push(y);
-  const out = new Map(CATALOG.map(c => [c[0], c]));
-  let done = 0, fails = 0;
-  const total = years.length * pages;
+  if (restart){ CATALOG = []; S.catYears = {}; save(true); }
 
-  async function grab(year, page){
-    const url = "https://api.themoviedb.org/3/discover/movie?language=ru-RU&include_adult=false"
-      + "&sort_by=popularity.desc&vote_count.gte=20&with_runtime.gte=60"
-      + "&primary_release_year=" + year + "&page=" + page
-      + "&api_key=" + encodeURIComponent(S.tmdb);
-    const r = await fetch(url);
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const j = await r.json();
-    (j.results || []).forEach(m => {
-      const y = +(m.release_date || "").slice(0, 4);
-      if (!y) return;
-      out.set(m.id, [m.id, m.title || m.original_title, m.original_title || m.title, y,
-                     m.genre_ids || [], Math.round((m.vote_average || 0) * 10) / 10,
-                     Math.round(m.popularity || 0), m.poster_path || ""]);
-    });
+  const minVotes = S.votes || 0;
+  const out = new Map(CATALOG.map(c => [c[0], c]));
+  const url = (y, pg) => "https://api.themoviedb.org/3/discover/movie?language=ru-RU&include_adult=false"
+    + "&sort_by=popularity.desc&with_runtime.gte=60&vote_count.gte=" + minVotes
+    + "&primary_release_year=" + y + "&page=" + pg
+    + "&api_key=" + encodeURIComponent(S.tmdb);
+  const take = j => (j.results || []).forEach(m => {
+    const y = +(m.release_date || "").slice(0, 4);
+    if (!y || !(m.title || m.original_title)) return;
+    out.set(m.id, [m.id, m.title || m.original_title, m.original_title || m.title, y,
+      m.genre_ids || [], Math.round((m.vote_average || 0) * 10) / 10,
+      Math.round(m.popularity || 0), m.poster_path || "", m.original_language || ""]);
+  });
+  const total = YEAR_TO - YEAR_FROM + 1;
+  let fails = 0;
+
+  for (const y of yearsLeft()){
+    let pages = 1;
+    try {
+      const r = await fetch(url(y, 1));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      take(j);
+      pages = Math.min(j.total_pages || 1, 500);
+    } catch (e) {
+      fails++;
+      catStatus('<b>Обрыв связи на ' + y + ' году.</b> Загружено ' + out.size + ' фильмов, продолжу при следующем открытии.', true);
+      loading = false;
+      return;
+    }
+    const q = []; for (let pg = 2; pg <= pages; pg++) q.push(pg);
+    let done = 0;
+    await Promise.all(new Array(6).fill(0).map(async () => {
+      while (q.length){
+        const pg = q.shift();
+        try { const r = await fetch(url(y, pg)); if (!r.ok) throw new Error("x"); take(await r.json()); }
+        catch (e) { fails++; }
+        if (++done % 8 === 0)
+          catStatus('<b>Собираю каталог…</b> ' + y + ' год, страница ' + done + ' из ' + pages + ' · всего ' + out.size + ' фильмов');
+      }
+    }));
+
+    S.catYears[y] = 1;
+    CATALOG = [...out.values()];
+    try { await idbSet("catalog", CATALOG); }
+    catch (e) {
+      catStatus('<span class="bad">Память телефона закончилась на ' + CATALOG.length + ' фильмах. Поднимите порог оценок в настройках и соберите заново.</span>', true);
+      loading = false; return;
+    }
+    save(true);
+    buildFilms(); buildFilters(); render();
+    const left = yearsLeft().length;
+    catStatus('<b>Собираю каталог…</b> готово ' + (total - left) + ' лет из ' + total + ' · ' + CATALOG.length + ' фильмов');
   }
 
-  const jobs = [];
-  years.forEach(y => { for (let pg = 1; pg <= pages; pg++) jobs.push([y, pg]); });
-  const workers = new Array(5).fill(0).map(async () => {
-    while (jobs.length){
-      const [y, pg] = jobs.shift();
-      try { await grab(y, pg); } catch (e) { fails++; }
-      done++;
-      if (done % 5 === 0 || done === total)
-        catStatus("Загружаю: " + done + " из " + total + " страниц, фильмов найдено " + out.size);
-    }
-  });
-  await Promise.all(workers);
-
-  CATALOG = [...out.values()];
-  try { localStorage.setItem(CAT_KEY, JSON.stringify(CATALOG)); }
-  catch (e) { catStatus('<span class="bad">Не влезло в память телефона. Уменьшите глубину и попробуйте снова.</span>'); loading = false; return; }
-  buildFilms(); buildFilters(); shown = PAGE; render();
-  catStatus('<span class="ok">Готово: ' + FILMS.length + ' фильмов в каталоге' + (fails ? ", " + fails + " страниц не открылось" : "") + '.</span>');
+  catStatus('<b>Каталог собран:</b> ' + FILMS.length + ' фильмов за ' + YEAR_FROM + '–' + YEAR_TO
+    + (fails ? ', ' + fails + ' страниц не открылось' : '') + '.', true);
   loading = false;
 }
 
@@ -1010,7 +1079,15 @@ function newRoom(){
 }
 
 /* ================= фильтрация ================= */
+let vKey = "", vCache = null;
 function visible(){
+  const key = JSON.stringify([F, S.sort, FILMS.length, S.fav.length, S.seen.length, Object.keys(S.rate).length]);
+  if (key === vKey && vCache) return vCache;
+  const res = computeVisible();
+  vKey = key; vCache = res;
+  return res;
+}
+function computeVisible(){
   const n = F.q.trim().toLowerCase();
   const out = FILMS.filter(f => {
     if (n && !(f.ru.toLowerCase().includes(n) || f.orig.toLowerCase().includes(n))) return false;
@@ -1018,6 +1095,8 @@ function visible(){
     if (F.gen.length && !f.genres.some(g => F.gen.includes(g))) return false;
     if (F.pick && !f.pick) return false;
     if (F.core && !f.core) return false;
+    if (F.from === "cis" && !isCIS(f)) return false;
+    if (F.from === "far" && isCIS(f)) return false;
     if (F.st === "fav" && !S.fav.includes(f.id)) return false;
     if (F.st === "seen" && !S.seen.includes(f.id)) return false;
     if (F.st === "unseen" && S.seen.includes(f.id)) return false;
@@ -1041,12 +1120,13 @@ function art(f){
     + '<div class="tnote">' + (S.tmdb ? "постер не найден" : "постеры выкл.") + '</div></div>';
 }
 function cardHTML(f){
-  const fav = S.fav.includes(f.id), seen = S.seen.includes(f.id), r = S.rate[f.id], mr = S.mate[f.id];
+  const fav = S.fav.includes(f.id), seen = S.seen.includes(f.id), r = S.rate[f.id], mr = S.mate[f.id], ours = isCIS(f);
   return '<button class="card'+(seen?" seen":"")+'" data-open="'+f.id+'">'
     + '<div class="pw">'
     +   '<div class="artw" data-p="'+f.id+'">'+art(f)+'</div>'
     +   (fav||r||mr ? '<div class="badge">'+(fav?'<span class="b fav">❤</span>':'')+(r?'<span class="b rate">'+r+'</span>':'')+(mr?'<span class="b mate">'+mr.r+'</span>':'')+'</div>' : '')
     +   (seen ? '<span class="stamp">Просмотрено</span>' : '')
+    +   '<span class="orig ' + (ours ? "ours" : "far") + '">' + (ours ? "СНГ" : "зарубеж") + '</span>'
     + '</div>'
     + '<div class="ctitle">'+esc(f.ru)+'</div>'
     + '<div class="cmeta"><span>'+f.year+'</span><span>'+(f.core?'СНГ '+f.cis:'поп '+f.pop)+'</span><span>★'+f.kp.toFixed(1)+'</span></div>'
@@ -1058,7 +1138,7 @@ function rowHTML(f){
   return '<button class="li" data-open="'+f.id+'">'
     + '<div class="th" data-p="'+f.id+'">'+(p?'<img loading="lazy" alt="" src="'+esc(p)+'">':'')+'</div>'
     + '<div><div class="ln">'+esc(f.ru)+(fav?' <span style="color:var(--red)">❤</span>':'')+(seen?' <span style="color:var(--cyan)">✓</span>':'')+'</div>'
-    + '<div class="lm">'+f.year+' · '+esc(f.genres.slice(0,3).join(" · "))+'</div></div>'
+    + '<div class="lm">'+f.year+' · '+(isCIS(f)?"СНГ":"зарубеж")+' · '+esc(f.genres.slice(0,3).join(" · "))+'</div></div>'
     + '<div class="lr"><span style="color:var(--amber)">'+(r?r:'—')+'</span><br><span style="color:var(--muted)">'+(f.core?'СНГ '+f.cis:'поп '+f.pop)+'</span></div>'
     + '</button>';
 }
@@ -1068,7 +1148,7 @@ function render(){
   const all = visible();
   const list = all.slice(0, shown);
   $("#f-count").textContent = all.length + " из " + FILMS.length;
-  const n = F.dec.length + F.gen.length + (F.st!=="all"?1:0) + (F.pick?1:0) + (F.core?1:0);
+  const n = F.dec.length + F.gen.length + (F.st!=="all"?1:0) + (F.pick?1:0) + (F.core?1:0) + (F.from?1:0);
   const c = $("#fcnt"); c.hidden = !n; c.textContent = n;
   $("#btn-v").textContent = S.view === "grid" ? "☰" : "▦";
   const more = all.length > list.length
@@ -1109,7 +1189,7 @@ function openFilm(id){
     +   '<div class="sh-p" data-p="'+f.id+'">'+(p?'<img alt="" src="'+esc(p)+'">':art(f))+'</div>'
     +   '<div style="min-width:0">'
     +     '<h2 class="sh-t">'+esc(f.ru)+'</h2>'
-    +     '<div class="sh-s">'+esc(f.orig)+'<br>'+f.year+' · '+f.dec+'<br>'+(f.core?'СНГ '+f.cis+'/100':'популярность '+f.pop+'/100')+' · рейтинг '+f.kp.toFixed(1)+'</div>'
+    +     '<div class="sh-s">'+esc(f.orig)+'<br>'+f.year+' · '+f.dec+'<br>'+(isCIS(f)?'кино СНГ':'зарубежное кино')+'<br>'+(f.core?'СНГ '+f.cis+'/100':'популярность '+f.pop+'/100')+' · рейтинг '+f.kp.toFixed(1)+'</div>'
     +   '</div>'
     + '</div>'
     + '<div style="margin:14px 0 0">'+f.genres.map(g=>'<span class="g'+(g==="Рождество"?" xmas":"")+'">'+esc(g)+'</span>').join("")
@@ -1139,6 +1219,7 @@ function openSettings(){
   const cached = Object.keys(S.cache).filter(k=>S.cache[k]).length;
   $("#sheet").innerHTML = '<div class="grab"></div>'
     + '<h2 class="sh-t">Настройки</h2>'
+    + '<div class="note" style="margin-top:4px">сборка ' + BUILD + '</div>'
     + '<span class="lbl" style="margin-top:14px">Ключ TMDB (уже вшит в файл)</span>'
     + '<input type="text" class="k" id="tk" placeholder="api key v3" value="'+esc(S.tmdb)+'" autocapitalize="off" autocorrect="off" spellcheck="false">'
     + '<button class="wide acc" data-act="savekey">проверить и сохранить</button>'
@@ -1147,17 +1228,16 @@ function openSettings(){
     + '<hr>'
     + '<span class="lbl">Полный каталог 1980–2015</span>'
     + '<div class="note" style="margin-bottom:8px">Сейчас в каталоге ' + FILMS.length + ' фильмов'
-    + (CATALOG.length ? ' (из них ' + CATALOG.length + ' подтянуто с TMDB)' : ' — только моя СНГ-подборка') + '.</div>'
-    + '<select id="depth" style="margin-bottom:8px">'
-    +   '<option value="100">по 100 фильмов на год (~3 600)</option>'
-    +   '<option value="200">по 200 фильмов на год (~7 200)</option>'
-    +   '<option value="300">по 300 фильмов на год (~10 800)</option>'
-    +   '<option value="500">по 500 фильмов на год (~18 000)</option>'
+    + (CATALOG.length ? ' (из них ' + CATALOG.length + ' с TMDB), собрано ' + Object.keys(S.catYears).length + ' лет из 36' : ' — только моя СНГ-подборка') + '.</div>'
+    + '<select id="votes" style="margin-bottom:8px">'
+    +   '<option value="10">от 10 оценок — всё заметное кино</option>'
+    +   '<option value="3">от 3 оценок — вообще всё, что нашлось</option>'
+    +   '<option value="50">от 50 оценок — покороче и почище</option>'
     + '</select>'
-    + '<button class="wide acc" data-act="loadcat">загрузить каталог</button>'
-    + (CATALOG.length ? '<button class="wide" data-act="clearcat">оставить только СНГ-подборку</button>' : '')
+    + '<button class="wide" data-act="loadcat">продолжить сборку</button>'
+    + '<button class="wide" data-act="recat">собрать заново с этим порогом</button>'
     + '<div class="note" id="cs" style="margin-top:8px"></div>'
-    + '<div class="note" style="margin-top:10px">Фильмы берутся из TMDB по каждому году, от самых популярных к редким, короткометражки и фильмы без оценок отсекаются. Постеры приходят сразу вместе с фильмами. Делайте это по Wi-Fi: чем больше глубина, тем дольше и тяжелее.</div>'
+    + '<div class="note" style="margin-top:10px">Берутся все фильмы каждого года с 1980 по 2015, без ограничения по количеству. Отсекаются только короткометражки короче часа и ленты, которых не оценил вообще никто. Сборка идёт по годам и продолжается с того места, где прервалась. Делайте по Wi-Fi.</div>'
     + '<hr>'
     + '<button class="wide" data-act="fetchall">загрузить все постеры сейчас</button>'
     + '<div class="note" id="pb" style="margin-top:8px">Постеров в памяти: '+cached+' из '+FILMS.length+'</div>'
@@ -1284,14 +1364,20 @@ $("#sheet").addEventListener("click", async e => {
     return;
   }
   if (act === "loadcat"){
-    const d = +document.getElementById("depth").value;
-    catStatus("Начинаю…");
-    await loadCatalog(d);
+    S.votes = +document.getElementById("votes").value; save(true);
+    catStatus("Продолжаю…");
+    loadCatalog(false);
+    return;
+  }
+  if (act === "recat"){
+    S.votes = +document.getElementById("votes").value; save(true);
+    catStatus("Собираю заново…");
+    loadCatalog(true);
     return;
   }
   if (act === "clearcat"){
-    CATALOG = [];
-    try { localStorage.removeItem(CAT_KEY); } catch(e){}
+    CATALOG = []; S.catYears = {}; save(true);
+    try { await idbSet("catalog", []); } catch(e){}
     buildFilms(); buildFilters(); shown = PAGE; render(); openSettings();
     return;
   }
@@ -1332,6 +1418,7 @@ function buildFilters(){
   chips($("#f-dec"), [["80-е","80-е"],["90-е","90-е"],["2000-е","2000-е"],["2010-е","2010-е"]], v => F.dec.includes(v),
     v => F.dec = F.dec.includes(v) ? F.dec.filter(x=>x!==v) : F.dec.concat(v));
   chips($("#f-st"), STATUS, v => F.st === v, v => F.st = v, "cyan");
+  chips($("#f-from"), [["","любое"],["cis","СНГ"],["far","зарубежное"]], v => F.from === v, v => F.from = v, "amber");
   chips($("#f-gen"), GENRES.map(g=>[g,g]), v => F.gen.includes(v),
     v => F.gen = F.gen.includes(v) ? F.gen.filter(x=>x!==v) : F.gen.concat(v));
   $("#f-pick").classList.toggle("on", F.pick);
@@ -1339,7 +1426,7 @@ function buildFilters(){
 }
 $("#f-pick").addEventListener("click", () => { F.pick = !F.pick; shown = PAGE; buildFilters(); render(); });
 $("#f-core").addEventListener("click", () => { F.core = !F.core; shown = PAGE; buildFilters(); render(); });
-$("#f-reset").addEventListener("click", () => { F = { q:"", dec:[], gen:[], st:"all", pick:false, core:false }; $("#q").value = ""; buildFilters(); render(); });
+$("#f-reset").addEventListener("click", () => { F = { q:"", dec:[], gen:[], st:"all", pick:false, core:false, from:"" }; $("#q").value = ""; buildFilters(); render(); });
 $("#f-sort").innerHTML = SORTS.map(([k,l]) => '<option value="'+k+'">'+l+'</option>').join("");
 $("#f-sort").value = S.sort;
 $("#f-sort").addEventListener("change", e => { S.sort = e.target.value; save(true); render(); });
@@ -1351,6 +1438,17 @@ setInterval(() => { if (document.visibilityState === "visible") syncNow(true); }
 buildFilters();
 render();
 if (S.room) syncNow(true);
+(async () => {
+  try {
+    const c = await idbGet("catalog");
+    if (c && c.length && c.length > CATALOG.length){ CATALOG = c; buildFilms(); buildFilters(); render(); }
+    else if (CATALOG.length) await idbSet("catalog", CATALOG);
+  } catch(e){}
+  if (S.tmdb && yearsLeft().length){
+    catStatus("<b>Собираю полный каталог за 1980–2015.</b> Годы добавляются на ходу, листать можно уже сейчас.");
+    loadCatalog(false);
+  }
+})();
 if (S.tmdb) fetchAll();
 
 </script>
