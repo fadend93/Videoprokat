@@ -213,6 +213,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
     <select id="f-sort"></select>
     <div class="frow" style="margin-top:12px">
       <button class="chip amber" id="f-pick">под наш вкус</button>
+      <button class="chip" id="f-core">СНГ-подборка</button>
       <button class="chip reset" id="f-reset">сбросить всё</button>
       <span class="grow"></span>
       <span class="lbl" style="margin:0" id="f-count"></span>
@@ -693,11 +694,47 @@ const isPick = g => g.includes("Рождество")
   || (g.includes("мелодрама") && (g.includes("комедия") || g.includes("фэнтези")))
   || (g.includes("биография") && g.includes("криминал"));
 
-const FILMS = RAW.map(([ru,orig,year,genres,cis,kp]) => ({
-  id: slug(ru,year), ru, orig, year, genres, cis, kp, dec: dec(year), pick: isPick(genres)
-}));
-const GENRES = [...new Set(FILMS.flatMap(f=>f.genres))]
-  .sort((a,b)=> a==="Рождество" ? -1 : b==="Рождество" ? 1 : a.localeCompare(b,"ru"));
+const CAT_KEY = "videoprokat.catalog.v2";
+const norm = t => String(t||"").toLowerCase().replace(/[^a-zа-яё0-9]/gi, "");
+
+/* жанры TMDB по-русски */
+const TG = {28:"боевик",12:"приключения",16:"анимация",35:"комедия",80:"криминал",99:"документальный",
+18:"драма",10751:"семейный",14:"фэнтези",36:"история",27:"ужасы",10402:"мюзикл",9648:"детектив",
+10749:"мелодрама",878:"фантастика",10770:"телефильм",53:"триллер",10752:"военный",37:"вестерн"};
+
+let CATALOG = [];      // [tmdbId, ru, orig, year, [genreIds], voteAvg, popularity, posterPath]
+try { const raw = localStorage.getItem(CAT_KEY); if (raw) CATALOG = JSON.parse(raw); } catch(e){}
+
+let FILMS = [], GENRES = [], SAGA = {};
+
+function buildFilms(){
+  const core = RAW.map(([ru,orig,year,genres,cis,kp]) => ({
+    id: slug(ru,year), ru, orig, year, genres, cis, kp,
+    pop: cis, dec: dec(year), pick: isPick(genres), core: true
+  }));
+  const seen = new Set();
+  core.forEach(f => { seen.add(norm(f.ru)+"|"+f.year); seen.add(norm(f.orig)+"|"+f.year); });
+
+  const extra = [];
+  CATALOG.forEach(c => {
+    const ru = c[1] || c[2], orig = c[2] || c[1], year = c[3];
+    if (!ru || !year) return;
+    if (seen.has(norm(ru)+"|"+year) || seen.has(norm(orig)+"|"+year)) return;
+    if (seen.has(norm(ru)+"|"+(year-1)) || seen.has(norm(orig)+"|"+(year-1))) return;
+    seen.add(norm(ru)+"|"+year); seen.add(norm(orig)+"|"+year);
+    const genres = (c[4]||[]).map(g => TG[g]).filter(Boolean);
+    extra.push({
+      id: "tmdb-" + c[0], ru, orig, year, genres,
+      cis: null, kp: c[5] || 0, pop: Math.min(99, Math.round(Math.log10((c[6]||1) + 1) * 40)),
+      dec: dec(year), pick: isPick(genres), core: false, path: c[7] || ""
+    });
+  });
+
+  FILMS = core.concat(extra);
+  GENRES = [...new Set(FILMS.flatMap(f => f.genres))]
+    .sort((a,b)=> a==="Рождество" ? -1 : b==="Рождество" ? 1 : a.localeCompare(b,"ru"));
+  buildSagas();
+}
 const SAGAS = [
 ["Индиана Джонс",["Индиана Джонс: В поисках утраченного ковчега","Индиана Джонс и храм судьбы","Индиана Джонс и последний крестовый поход"]],
 ["Рэмбо",["Рэмбо: Первая кровь","Рэмбо: Первая кровь 2","Рэмбо 3"]],
@@ -751,13 +788,16 @@ const SAGAS = [
 ["Особенности национальной охоты",["Особенности национальной охоты","Особенности национальной рыбалки"]],
 ["Парк Юрского периода",["Парк Юрского периода","Мир Юрского периода"]],
 ];
-const SAGA = {};
-SAGAS.forEach(([name, titles]) => {
-  const mem = titles.map(t => FILMS.find(f => f.ru === t)).filter(Boolean);
-  if (mem.length < 2) return;
-  mem.forEach((f, i) => { SAGA[f.id] = { name: name, part: i + 1, total: mem.length, mem: mem }; });
-});
-const SORTS = [["cis","популярность в СНГ"],["kp","рейтинг ≈КП"],["mine","моя оценка"],
+function buildSagas(){
+  SAGA = {};
+  SAGAS.forEach(([name, titles]) => {
+    const mem = titles.map(t => FILMS.find(f => f.ru === t)).filter(Boolean);
+    if (mem.length < 2) return;
+    mem.forEach((f, i) => { SAGA[f.id] = { name: name, part: i + 1, total: mem.length, mem: mem }; });
+  });
+}
+buildFilms();
+const SORTS = [["cis","популярность в СНГ"],["kp","рейтинг"],["mine","моя оценка"],
   ["new","год: новые сначала"],["old","год: старые сначала"],["az","название А–Я"]];
 const STATUS = [["all","все"],["fav","избранное"],["seen","просмотрено"],["unseen","ещё не смотрели"],["rated","с оценкой"]];
 
@@ -778,15 +818,17 @@ function save(now){
   now ? go() : saveT = setTimeout(go, 250);
 }
 
-let F = { q:"", dec:[], gen:[], st:"all", pick:false };
+let F = { q:"", dec:[], gen:[], st:"all", pick:false, core:false };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const $ = s => document.querySelector(s);
-const posterOf = f => S.poster[f.id] || (S.cache[f.id] ? "https://image.tmdb.org/t/p/w342"+S.cache[f.id] : "");
+const posterOf = f => S.poster[f.id]
+  || (f.path ? "https://image.tmdb.org/t/p/w342" + f.path : "")
+  || (S.cache[f.id] ? "https://image.tmdb.org/t/p/w342" + S.cache[f.id] : "");
 
 /* ================= постеры (TMDB) ================= */
 const queue = []; let active = 0; let pending = 0;
 function needPoster(f){
-  if (!S.tmdb || S.poster[f.id] || S.cache[f.id] !== undefined) return;
+  if (!S.tmdb || f.path || S.poster[f.id] || S.cache[f.id] !== undefined) return;
   if (queue.includes(f.id)) return;
   queue.push(f.id); pump();
 }
@@ -850,6 +892,57 @@ function observe(){
 function fetchAll(){
   if (!S.tmdb) return;
   FILMS.forEach(f => { if (S.cache[f.id] === undefined && !S.poster[f.id]) needPoster(f); });
+}
+
+/* ================= загрузка каталога с TMDB ================= */
+let loading = false;
+function catStatus(t){ const el = document.getElementById("cs"); if (el) el.innerHTML = t; }
+
+async function loadCatalog(perYear){
+  if (loading || !S.tmdb) return;
+  loading = true;
+  const pages = Math.ceil(perYear / 20);
+  const years = []; for (let y = 1980; y <= 2015; y++) years.push(y);
+  const out = new Map(CATALOG.map(c => [c[0], c]));
+  let done = 0, fails = 0;
+  const total = years.length * pages;
+
+  async function grab(year, page){
+    const url = "https://api.themoviedb.org/3/discover/movie?language=ru-RU&include_adult=false"
+      + "&sort_by=popularity.desc&vote_count.gte=20&with_runtime.gte=60"
+      + "&primary_release_year=" + year + "&page=" + page
+      + "&api_key=" + encodeURIComponent(S.tmdb);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    (j.results || []).forEach(m => {
+      const y = +(m.release_date || "").slice(0, 4);
+      if (!y) return;
+      out.set(m.id, [m.id, m.title || m.original_title, m.original_title || m.title, y,
+                     m.genre_ids || [], Math.round((m.vote_average || 0) * 10) / 10,
+                     Math.round(m.popularity || 0), m.poster_path || ""]);
+    });
+  }
+
+  const jobs = [];
+  years.forEach(y => { for (let pg = 1; pg <= pages; pg++) jobs.push([y, pg]); });
+  const workers = new Array(5).fill(0).map(async () => {
+    while (jobs.length){
+      const [y, pg] = jobs.shift();
+      try { await grab(y, pg); } catch (e) { fails++; }
+      done++;
+      if (done % 5 === 0 || done === total)
+        catStatus("Загружаю: " + done + " из " + total + " страниц, фильмов найдено " + out.size);
+    }
+  });
+  await Promise.all(workers);
+
+  CATALOG = [...out.values()];
+  try { localStorage.setItem(CAT_KEY, JSON.stringify(CATALOG)); }
+  catch (e) { catStatus('<span class="bad">Не влезло в память телефона. Уменьшите глубину и попробуйте снова.</span>'); loading = false; return; }
+  buildFilms(); buildFilters(); shown = PAGE; render();
+  catStatus('<span class="ok">Готово: ' + FILMS.length + ' фильмов в каталоге' + (fails ? ", " + fails + " страниц не открылось" : "") + '.</span>');
+  loading = false;
 }
 
 /* ================= синхронизация ================= */
@@ -924,6 +1017,7 @@ function visible(){
     if (F.dec.length && !F.dec.includes(f.dec)) return false;
     if (F.gen.length && !f.genres.some(g => F.gen.includes(g))) return false;
     if (F.pick && !f.pick) return false;
+    if (F.core && !f.core) return false;
     if (F.st === "fav" && !S.fav.includes(f.id)) return false;
     if (F.st === "seen" && !S.seen.includes(f.id)) return false;
     if (F.st === "unseen" && S.seen.includes(f.id)) return false;
@@ -931,9 +1025,9 @@ function visible(){
     return true;
   });
   const mine = f => S.rate[f.id] || -1;
-  const cmp = { cis:(a,b)=>b.cis-a.cis||b.kp-a.kp, kp:(a,b)=>b.kp-a.kp||b.cis-a.cis,
-    mine:(a,b)=>mine(b)-mine(a)||b.cis-a.cis, new:(a,b)=>b.year-a.year||b.cis-a.cis,
-    old:(a,b)=>a.year-b.year||b.cis-a.cis, az:(a,b)=>a.ru.localeCompare(b.ru,"ru") }[S.sort];
+  const cmp = { cis:(a,b)=>b.pop-a.pop||b.kp-a.kp, kp:(a,b)=>b.kp-a.kp||b.pop-a.pop,
+    mine:(a,b)=>mine(b)-mine(a)||b.pop-a.pop, new:(a,b)=>b.year-a.year||b.pop-a.pop,
+    old:(a,b)=>a.year-b.year||b.pop-a.pop, az:(a,b)=>a.ru.localeCompare(b.ru,"ru") }[S.sort];
   return out.sort(cmp);
 }
 
@@ -955,7 +1049,7 @@ function cardHTML(f){
     +   (seen ? '<span class="stamp">Просмотрено</span>' : '')
     + '</div>'
     + '<div class="ctitle">'+esc(f.ru)+'</div>'
-    + '<div class="cmeta"><span>'+f.year+'</span><span>СНГ '+f.cis+'</span><span>★'+f.kp.toFixed(1)+'</span></div>'
+    + '<div class="cmeta"><span>'+f.year+'</span><span>'+(f.core?'СНГ '+f.cis:'поп '+f.pop)+'</span><span>★'+f.kp.toFixed(1)+'</span></div>'
     + '</button>';
 }
 function rowHTML(f){
@@ -965,19 +1059,25 @@ function rowHTML(f){
     + '<div class="th" data-p="'+f.id+'">'+(p?'<img loading="lazy" alt="" src="'+esc(p)+'">':'')+'</div>'
     + '<div><div class="ln">'+esc(f.ru)+(fav?' <span style="color:var(--red)">❤</span>':'')+(seen?' <span style="color:var(--cyan)">✓</span>':'')+'</div>'
     + '<div class="lm">'+f.year+' · '+esc(f.genres.slice(0,3).join(" · "))+'</div></div>'
-    + '<div class="lr"><span style="color:var(--amber)">'+(r?r:'—')+'</span><br><span style="color:var(--muted)">СНГ '+f.cis+'</span></div>'
+    + '<div class="lr"><span style="color:var(--amber)">'+(r?r:'—')+'</span><br><span style="color:var(--muted)">'+(f.core?'СНГ '+f.cis:'поп '+f.pop)+'</span></div>'
     + '</button>';
 }
+const PAGE = 240;
+let shown = PAGE;
 function render(){
-  const list = visible();
-  $("#f-count").textContent = list.length + " из " + FILMS.length;
-  const n = F.dec.length + F.gen.length + (F.st!=="all"?1:0) + (F.pick?1:0);
+  const all = visible();
+  const list = all.slice(0, shown);
+  $("#f-count").textContent = all.length + " из " + FILMS.length;
+  const n = F.dec.length + F.gen.length + (F.st!=="all"?1:0) + (F.pick?1:0) + (F.core?1:0);
   const c = $("#fcnt"); c.hidden = !n; c.textContent = n;
   $("#btn-v").textContent = S.view === "grid" ? "☰" : "▦";
+  const more = all.length > list.length
+    ? '<button class="wide" id="more" style="margin-top:18px">показать ещё ' + Math.min(PAGE, all.length - list.length) + ' из ' + (all.length - list.length) + '</button>'
+    : '';
   $("#out").innerHTML = !list.length
     ? '<div class="empty">На этой полке пусто.<br>Снимите пару фильтров — фильмы вернутся.</div>'
-    : (S.view === "grid" ? '<div class="grid">'+list.map(cardHTML).join("")+'</div>'
-                         : '<div class="list">'+list.map(rowHTML).join("")+'</div>');
+    : (S.view === "grid" ? '<div class="grid">'+list.map(cardHTML).join("")+'</div>'+more
+                         : '<div class="list">'+list.map(rowHTML).join("")+'</div>'+more);
   const rated = Object.values(S.rate);
   $("#s-seen").textContent = S.seen.length;
   $("#s-fav").textContent = S.fav.length;
@@ -1009,7 +1109,7 @@ function openFilm(id){
     +   '<div class="sh-p" data-p="'+f.id+'">'+(p?'<img alt="" src="'+esc(p)+'">':art(f))+'</div>'
     +   '<div style="min-width:0">'
     +     '<h2 class="sh-t">'+esc(f.ru)+'</h2>'
-    +     '<div class="sh-s">'+esc(f.orig)+'<br>'+f.year+' · '+f.dec+'<br>СНГ '+f.cis+'/100 · ≈КП '+f.kp.toFixed(1)+'</div>'
+    +     '<div class="sh-s">'+esc(f.orig)+'<br>'+f.year+' · '+f.dec+'<br>'+(f.core?'СНГ '+f.cis+'/100':'популярность '+f.pop+'/100')+' · рейтинг '+f.kp.toFixed(1)+'</div>'
     +   '</div>'
     + '</div>'
     + '<div style="margin:14px 0 0">'+f.genres.map(g=>'<span class="g'+(g==="Рождество"?" xmas":"")+'">'+esc(g)+'</span>').join("")
@@ -1044,6 +1144,21 @@ function openSettings(){
     + '<button class="wide acc" data-act="savekey">проверить и сохранить</button>'
     + '<button class="wide" data-act="diag">проверить связь</button>'
     + '<div class="note" id="ks" style="margin-top:8px"></div>'
+    + '<hr>'
+    + '<span class="lbl">Полный каталог 1980–2015</span>'
+    + '<div class="note" style="margin-bottom:8px">Сейчас в каталоге ' + FILMS.length + ' фильмов'
+    + (CATALOG.length ? ' (из них ' + CATALOG.length + ' подтянуто с TMDB)' : ' — только моя СНГ-подборка') + '.</div>'
+    + '<select id="depth" style="margin-bottom:8px">'
+    +   '<option value="100">по 100 фильмов на год (~3 600)</option>'
+    +   '<option value="200">по 200 фильмов на год (~7 200)</option>'
+    +   '<option value="300">по 300 фильмов на год (~10 800)</option>'
+    +   '<option value="500">по 500 фильмов на год (~18 000)</option>'
+    + '</select>'
+    + '<button class="wide acc" data-act="loadcat">загрузить каталог</button>'
+    + (CATALOG.length ? '<button class="wide" data-act="clearcat">оставить только СНГ-подборку</button>' : '')
+    + '<div class="note" id="cs" style="margin-top:8px"></div>'
+    + '<div class="note" style="margin-top:10px">Фильмы берутся из TMDB по каждому году, от самых популярных к редким, короткометражки и фильмы без оценок отсекаются. Постеры приходят сразу вместе с фильмами. Делайте это по Wi-Fi: чем больше глубина, тем дольше и тяжелее.</div>'
+    + '<hr>'
     + '<button class="wide" data-act="fetchall">загрузить все постеры сейчас</button>'
     + '<div class="note" id="pb" style="margin-top:8px">Постеров в памяти: '+cached+' из '+FILMS.length+'</div>'
     + '<div class="note" style="margin-top:10px">Ключ уже прописан внутри файла — вводить ничего не нужно. Поле пригодится, если решите перевыпустить ключ на themoviedb.org → Settings → API: вставьте новый и сохраните.</div>'
@@ -1115,6 +1230,7 @@ function closeSheet(){
 
 /* ================= события ================= */
 $("#out").addEventListener("click", e => {
+  if (e.target.id === "more"){ shown += PAGE; render(); return; }
   const b = e.target.closest("[data-open]"); if (b) openFilm(b.dataset.open);
 });
 $("#ov").addEventListener("click", e => { if (e.target === $("#ov")) closeSheet(); });
@@ -1167,6 +1283,18 @@ $("#sheet").addEventListener("click", async e => {
     openSettings();
     return;
   }
+  if (act === "loadcat"){
+    const d = +document.getElementById("depth").value;
+    catStatus("Начинаю…");
+    await loadCatalog(d);
+    return;
+  }
+  if (act === "clearcat"){
+    CATALOG = [];
+    try { localStorage.removeItem(CAT_KEY); } catch(e){}
+    buildFilms(); buildFilters(); shown = PAGE; render(); openSettings();
+    return;
+  }
   if (act === "fetchall"){ warned = false; document.getElementById("warn").hidden = true; fetchAll(); return; }
   if (act === "diag"){ diagnose(); return; }
   if (act === "clearcache"){ S.cache = {}; save(true); render(); openSettings(); return; }
@@ -1193,12 +1321,12 @@ $("#btn-f").addEventListener("click", () => {
 });
 $("#btn-v").addEventListener("click", () => { S.view = S.view === "grid" ? "list" : "grid"; save(true); render(); });
 let qt = null;
-$("#q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { F.q = e.target.value; render(); }, 140); });
+$("#q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { F.q = e.target.value; shown = PAGE; render(); }, 140); });
 
 /* ---- чипы фильтров ---- */
 function chips(host, items, isOn, onTap, cls){
   host.innerHTML = items.map(([v,l]) => '<button class="chip'+(cls?" "+cls:"")+(isOn(v)?" on":"")+'" data-v="'+esc(v)+'">'+esc(l)+'</button>').join("");
-  host.onclick = e => { const b = e.target.closest(".chip"); if (!b) return; onTap(b.dataset.v); buildFilters(); render(); };
+  host.onclick = e => { const b = e.target.closest(".chip"); if (!b) return; onTap(b.dataset.v); shown = PAGE; buildFilters(); render(); };
 }
 function buildFilters(){
   chips($("#f-dec"), [["80-е","80-е"],["90-е","90-е"],["2000-е","2000-е"],["2010-е","2010-е"]], v => F.dec.includes(v),
@@ -1207,9 +1335,11 @@ function buildFilters(){
   chips($("#f-gen"), GENRES.map(g=>[g,g]), v => F.gen.includes(v),
     v => F.gen = F.gen.includes(v) ? F.gen.filter(x=>x!==v) : F.gen.concat(v));
   $("#f-pick").classList.toggle("on", F.pick);
+  $("#f-core").classList.toggle("on", F.core);
 }
-$("#f-pick").addEventListener("click", () => { F.pick = !F.pick; buildFilters(); render(); });
-$("#f-reset").addEventListener("click", () => { F = { q:"", dec:[], gen:[], st:"all", pick:false }; $("#q").value = ""; buildFilters(); render(); });
+$("#f-pick").addEventListener("click", () => { F.pick = !F.pick; shown = PAGE; buildFilters(); render(); });
+$("#f-core").addEventListener("click", () => { F.core = !F.core; shown = PAGE; buildFilters(); render(); });
+$("#f-reset").addEventListener("click", () => { F = { q:"", dec:[], gen:[], st:"all", pick:false, core:false }; $("#q").value = ""; buildFilters(); render(); });
 $("#f-sort").innerHTML = SORTS.map(([k,l]) => '<option value="'+k+'">'+l+'</option>').join("");
 $("#f-sort").value = S.sort;
 $("#f-sort").addEventListener("change", e => { S.sort = e.target.value; save(true); render(); });
