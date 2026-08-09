@@ -92,6 +92,11 @@ main{padding:12px 12px calc(40px + var(--bot))}
   box-shadow:0 2px 6px rgba(0,0,0,.5)}
 .b.fav{background:var(--red);color:#fff}
 .b.rate{background:var(--amber);color:var(--ink)}
+.pv{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 62px;font-size:9.5px;line-height:1.15;
+  color:var(--muted);text-align:center}
+.pv img{width:46px;height:46px;border-radius:12px;object-fit:cover}
+a.chip{display:inline-block;text-decoration:none}
+a.goto{display:block;text-align:center;line-height:46px;text-decoration:none;margin-top:12px}
 .orig{position:absolute;left:6px;bottom:6px;font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.09em;
   text-transform:uppercase;line-height:1;padding:3px 5px;border-radius:5px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .orig.ours{background:rgba(239,169,59,.92);color:var(--ink);font-weight:600}
@@ -846,7 +851,7 @@ const KEY = "videoprokat.v2";
 const SB_URL = "https://oemtatnfceeixqdkjzdn.supabase.co";
 const SB_KEY = "sb_publishable_FpoDDhkZDRwngrVpReesIA_-y-RaLlv";
 const D = { fav:[], seen:[], rate:{}, poster:{}, cache:{}, tmdb:TMDB_DEFAULT, sort:"cis", view:"grid",
-            room:"", person:"Я", mate:{}, dirty:{}, catYears:{}, votes:10 };
+            room:"", person:"Я", mate:{}, dirty:{}, catYears:{}, votes:10, tid:{} };
 let S = Object.assign({}, D);
 try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign({}, D, JSON.parse(raw)); } catch(e){}
 if (!S.tmdb) S.tmdb = TMDB_DEFAULT;
@@ -931,6 +936,58 @@ function observe(){
 function fetchAll(){
   if (!S.tmdb) return;
   FILMS.forEach(f => { if (S.cache[f.id] === undefined && !S.poster[f.id]) needPoster(f); });
+}
+
+/* ================= где посмотреть ================= */
+async function tmdbIdOf(f){
+  if (f.id.indexOf("tmdb-") === 0) return f.id.slice(5);
+  if (S.tid[f.id]) return S.tid[f.id];
+  const q = (t, y) => "https://api.themoviedb.org/3/search/movie?include_adult=false&language=ru-RU&api_key="
+    + encodeURIComponent(S.tmdb) + "&query=" + encodeURIComponent(t) + (y ? "&year=" + y : "");
+  for (const url of [q(f.orig, f.year), q(f.ru, f.year), q(f.orig)]){
+    const r = await fetch(url);
+    if (!r.ok) continue;
+    const list = ((await r.json()).results || []);
+    const hit = list.find(x => (x.release_date || "").slice(0, 4) == f.year) || list[0];
+    if (hit){ S.tid[f.id] = hit.id; save(); return hit.id; }
+  }
+  return null;
+}
+
+const UA_SERVICES = [["Київстар ТБ","tv.kyivstar.ua"],["Megogo","megogo.net"],["Sweet TV","sweet.tv"],["Volia","volia.com"]];
+function huntHTML(f){
+  return '<div style="margin-top:14px"><span class="lbl" style="margin:0 0 6px">поискать вручную</span><div class="chips">'
+    + UA_SERVICES.map(s => '<a class="chip" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q='
+        + encodeURIComponent("site:" + s[1] + " " + f.ru + " " + f.year) + '">' + esc(s[0]) + '</a>').join("")
+    + '</div></div>';
+}
+async function fillWatch(f){
+  const box = document.getElementById("watch");
+  if (!box) return;
+  if (!S.tmdb){ box.textContent = "нужен ключ TMDB"; return; }
+  try {
+    const id = await tmdbIdOf(f);
+    if (!id){ box.innerHTML = "этого фильма нет в базе TMDB" + huntHTML(f); return; }
+    const r = await fetch("https://api.themoviedb.org/3/movie/" + id + "/watch/providers?api_key=" + encodeURIComponent(S.tmdb));
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const res = ((await r.json()).results || {})["UA"];
+    if (!res){ box.innerHTML = "TMDB не знает, где он выложен в Украине" + huntHTML(f); return; }
+    const groups = [["flatrate","по подписке"],["free","бесплатно"],["ads","бесплатно с рекламой"],["rent","аренда"],["buy","покупка"]];
+    let out = "";
+    groups.forEach(([k, label]) => {
+      const arr = res[k];
+      if (!arr || !arr.length) return;
+      out += '<div style="margin-top:10px"><span class="lbl" style="margin:0 0 6px">' + label + '</span>'
+        + '<div class="saga">' + arr.map(pv =>
+            '<span class="pv">' + (pv.logo_path ? '<img alt="" src="https://image.tmdb.org/t/p/w92' + pv.logo_path + '">' : '')
+            + '<span>' + esc(pv.provider_name) + '</span></span>').join("")
+        + '</div></div>';
+    });
+    if (res.link) out += '<a class="wide acc goto" href="' + esc(res.link) + '" target="_blank" rel="noopener noreferrer">перейти к просмотру</a>';
+    box.innerHTML = (out || "TMDB не знает, где он выложен в Украине") + huntHTML(f);
+  } catch (e) {
+    box.innerHTML = "не получилось проверить: " + esc(e.message) + huntHTML(f);
+  }
 }
 
 /* ================= загрузка каталога с TMDB ================= */
@@ -1194,6 +1251,8 @@ function openFilm(id){
     + '</div>'
     + '<div style="margin:14px 0 0">'+f.genres.map(g=>'<span class="g'+(g==="Рождество"?" xmas":"")+'">'+esc(g)+'</span>').join("")
     +   (f.pick?'<span class="g" style="color:var(--amber);border-color:rgba(239,169,59,.5)">под наш вкус</span>':'')+'</div>'
+    + '<span class="lbl" style="margin-top:18px">Где посмотреть</span>'
+    + '<div id="watch" class="note">ищу…</div>'
     + sagaHTML(f)
     + '<div class="big">'
     +   '<button data-act="fav" class="'+(fav?"on-fav":"")+'">'+(fav?"❤ в избранном":"♡ в избранное")+'</button>'
@@ -1210,6 +1269,7 @@ function openFilm(id){
     + '<button class="wide" data-act="close" style="margin-top:14px">закрыть</button>';
   $("#sheet").dataset.film = id;
   $("#sheet").scrollTop = 0;
+  fillWatch(f);
   $("#ov").classList.add("show");
   document.body.style.overflow = "hidden";
 }
